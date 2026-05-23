@@ -1,0 +1,60 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://lifelog.onelifestack.com/api",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDFsACBUvQjL0yGriwWofQxZv4N9vD8Co4",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "lifelog-367b8.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "lifelog-367b8",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "lifelog-367b8.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "437862878429",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:437862878429:web:3e83b4877bb914f98e9f34",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "437862878429-6cbkna31q0h7919gkm4dsc7ddp2kap1s.apps.googleusercontent.com"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://lifelog.onelifestack.com/api",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDFsACBUvQjL0yGriwWofQxZv4N9vD8Co4",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "lifelog-367b8.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "lifelog-367b8",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "lifelog-367b8.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "437862878429",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:437862878429:web:3e83b4877bb914f98e9f34",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "437862878429-6cbkna31q0h7919gkm4dsc7ddp2kap1s.apps.googleusercontent.com"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://lifelog.onelifestack.com/api",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDFsACBUvQjL0yGriwWofQxZv4N9vD8Co4",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "lifelog-367b8.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "lifelog-367b8",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "lifelog-367b8.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "437862878429",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:437862878429:web:3e83b4877bb914f98e9f34",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "437862878429-6cbkna31q0h7919gkm4dsc7ddp2kap1s.apps.googleusercontent.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
