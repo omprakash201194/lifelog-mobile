@@ -8,7 +8,6 @@ import {
 } from 'firebase/auth'
 import * as WebBrowser from 'expo-web-browser'
 import * as Google from 'expo-auth-session/providers/google'
-import { makeRedirectUri } from 'expo-auth-session'
 import { auth } from '@/lib/firebase'
 
 WebBrowser.maybeCompleteAuthSession()
@@ -31,12 +30,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]       = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // reason: EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is the web OAuth client ID from
-  // Firebase console (not iOS/Android ID). expo-auth-session uses this for
-  // the OAuth flow and exchanges it for a Firebase credential.
+  // reason: androidClientId is a separate Android OAuth 2.0 client created in
+  // Google Cloud Console with the app's package name + SHA-1 fingerprint.
+  // webClientId is the Web OAuth client — used on all platforms to exchange
+  // the auth code for a Firebase credential via signInWithCredential.
   const [request, response, promptAsync] = Google.useAuthRequest({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    redirectUri:  makeRedirectUri({ scheme: 'lifelog' }),
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    webClientId:     process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   })
 
   useEffect(() => {
