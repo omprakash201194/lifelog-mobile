@@ -1,6 +1,5 @@
 import axios from 'axios'
 import { auth } from '@/lib/firebase'
-import { router } from 'expo-router'
 
 // reason: base URL is the publicly-accessible Cloudflare Tunnel domain
 // Set EXPO_PUBLIC_API_URL in .env (e.g., https://lifelog.yourdomain.com/api)
@@ -26,6 +25,7 @@ apiClient.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err?.response?.status === 401) {
+      const { router } = require('expo-router')
       router.replace('/(auth)')
     }
     return Promise.reject(err)

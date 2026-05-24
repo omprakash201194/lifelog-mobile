@@ -1,6 +1,7 @@
-import { initializeApp, getApps } from 'firebase/app'
-import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth'
+import { initializeApp, getApps, getApp } from 'firebase/app'
+import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { Platform } from 'react-native'
 
 const firebaseConfig = {
   apiKey:            process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
@@ -11,11 +12,17 @@ const firebaseConfig = {
   appId:             process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 }
 
-// reason: guard against re-initialization in Expo fast-refresh cycles.
-// initializeAuth with AsyncStorage persistence keeps the user logged in
-// across app restarts — without this, auth state resets every cold start.
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
-export const auth = getApps().length === 1
-  ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
+const isFirstInit = getApps().length === 0
+const app = isFirstInit ? initializeApp(firebaseConfig) : getApp()
+
+// reason: getAuth() uses browser persistence which fails silently on React Native.
+// initializeAuth with getReactNativePersistence(AsyncStorage) is required.
+// Can only call initializeAuth once — on fast-refresh re-runs, use getAuth.
+const auth = isFirstInit && Platform.OS !== 'web'
+  ? initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    })
   : getAuth(app)
+
+export { auth }
 export default app

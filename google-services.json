@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "437862878429",
+    "project_id": "lifelog-367b8",
+    "storage_bucket": "lifelog-367b8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:437862878429:android:1149883d5ba03c0f8e9f34",
+        "android_client_info": {
+          "package_name": "com.ogautam.lifelog"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "437862878429-6cbkna31q0h7919gkm4dsc7ddp2kap1s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAiVs7Qp_F1P-ut_mnWN837N0vVSsIahQo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "437862878429-6cbkna31q0h7919gkm4dsc7ddp2kap1s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
