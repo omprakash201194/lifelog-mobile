@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import apiClient from '@/services/api'
@@ -31,10 +31,10 @@ function LogCard({ log, onDelete, onEdit }: { log: HealthLog; onDelete: () => vo
       <View style={styles.logHeader}>
         <Text style={styles.logDate}>{fmt(log.logDate)}</Text>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
             <Text style={styles.editIcon}>{'\u270E'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
             <Text style={styles.deleteIcon}>{'\u2715'}</Text>
           </TouchableOpacity>
         </View>
@@ -119,75 +119,94 @@ export default function HealthScreen() {
   const latest = data[0]
 
   return (
-    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
+    <ScreenWrapper scroll={false} padHorizontal={false}>
       <ModalForm
         visible={modalVisible}
         title={editing ? 'Edit Log' : 'Log Health'}
         onClose={() => setModalVisible(false)}
-        onSave={() => saveMutation.mutate(form)}
+        onSave={() => {
+          const nums = [form.weight, form.sleep, form.heartRate, form.steps].filter(v => v)
+          if (nums.some(v => isNaN(Number(v)))) {
+            showToast('Please enter valid numbers', 'error')
+            return
+          }
+          if (!form.weight && !form.sleep && !form.heartRate && !form.steps && !form.workout.trim()) {
+            showToast('Please fill at least one field', 'error')
+            return
+          }
+          saveMutation.mutate(form)
+        }}
         saving={saveMutation.isPending}
         disabled={isOffline}
       >
         <FormField label="Date" value={form.logDate} onChangeText={t => set('logDate', t)} />
         <View style={styles.row2}>
           <View style={{ flex: 1 }}>
-            <FormField label="Weight (kg)" value={form.weight} onChangeText={t => set('weight', t)} keyboardType="decimal-pad" placeholder="0.0" />
+            <FormField label="Weight (kg)" value={form.weight} onChangeText={t => set('weight', t)} keyboardType="numeric" placeholder="0.0" />
           </View>
           <View style={{ flex: 1 }}>
-            <FormField label="Sleep (h)" value={form.sleep} onChangeText={t => set('sleep', t)} keyboardType="decimal-pad" placeholder="0.0" />
+            <FormField label="Sleep (h)" value={form.sleep} onChangeText={t => set('sleep', t)} keyboardType="numeric" placeholder="0.0" />
           </View>
         </View>
         <View style={styles.row2}>
           <View style={{ flex: 1 }}>
-            <FormField label="Heart Rate (bpm)" value={form.heartRate} onChangeText={t => set('heartRate', t)} keyboardType="number-pad" placeholder="0" />
+            <FormField label="Heart Rate (bpm)" value={form.heartRate} onChangeText={t => set('heartRate', t)} keyboardType="numeric" placeholder="0" />
           </View>
           <View style={{ flex: 1 }}>
-            <FormField label="Steps" value={form.steps} onChangeText={t => set('steps', t)} keyboardType="number-pad" placeholder="0" />
+            <FormField label="Steps" value={form.steps} onChangeText={t => set('steps', t)} keyboardType="numeric" placeholder="0" />
           </View>
         </View>
-        <FormField label="Workout" optional value={form.workout} onChangeText={t => set('workout', t)} placeholder="e.g. 30min run, gym..." />
-        <FormField label="Notes" optional value={form.notes} onChangeText={t => set('notes', t)} placeholder="How do you feel?" multiline numberOfLines={3} />
+        <FormField label="Workout" optional value={form.workout} onChangeText={t => set('workout', t)} placeholder="e.g. 30min run, gym..." maxLength={100} />
+        <FormField label="Notes" optional value={form.notes} onChangeText={t => set('notes', t)} placeholder="How do you feel?" multiline numberOfLines={3} maxLength={2000} />
       </ModalForm>
-
-      <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.pageTitle}>Health</Text>
-            <Text style={styles.pageSubtitle}>{data.length} log{data.length === 1 ? '' : 's'}</Text>
-          </View>
-          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
-            <Text style={styles.addBtnText}>+ Log</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {latest && (
-        <View style={styles.summaryCard}>
-          <Text style={styles.sectionLabel}>Latest {'\u00B7'} {fmt(latest.logDate)}</Text>
-          <View style={styles.summaryRow}>
-            <StatPill label="Weight" value={latest.weight} unit="kg" />
-            <StatPill label="Sleep" value={latest.sleep} unit="h" />
-            <StatPill label="Steps" value={latest.steps ? latest.steps.toLocaleString() : null} />
-            <StatPill label="HR" value={latest.heartRate} unit="bpm" />
-          </View>
-        </View>
-      )}
 
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />}
       {isError && <Text style={styles.errorText}>Could not load health logs</Text>}
 
-      {data.map(log => (
-        <LogCard key={log.id} log={log} onDelete={() => handleDelete(log.id)} onEdit={() => openEdit(log)} />
-      ))}
-      {!isLoading && data.length === 0 && (
-        <View style={styles.empty}>
-          <Text style={{ fontSize: 48 }}>{'\u{1F4AA}'}</Text>
-          <Text style={styles.emptyText}>No logs yet</Text>
-          <Text style={styles.emptySub}>Tap + Log to track your first day</Text>
-        </View>
-      )}
-      <View style={{ height: spacing.xxxl }} />
+      <FlatList
+        data={data}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}
+        ListHeaderComponent={
+          <View>
+            <View style={styles.pageHeader}>
+              <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+              <View style={styles.headerRow}>
+                <View>
+                  <Text style={styles.pageTitle}>Health</Text>
+                  <Text style={styles.pageSubtitle}>{data.length} log{data.length === 1 ? '' : 's'}</Text>
+                </View>
+                <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new health log">
+                  <Text style={styles.addBtnText}>+ Log</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            {latest && (
+              <View style={styles.summaryCard}>
+                <Text style={styles.sectionLabel}>Latest {'\u00B7'} {fmt(latest.logDate)}</Text>
+                <View style={styles.summaryRow}>
+                  <StatPill label="Weight" value={latest.weight} unit="kg" />
+                  <StatPill label="Sleep" value={latest.sleep} unit="h" />
+                  <StatPill label="Steps" value={latest.steps ? latest.steps.toLocaleString() : null} />
+                  <StatPill label="HR" value={latest.heartRate} unit="bpm" />
+                </View>
+              </View>
+            )}
+          </View>
+        }
+        ListEmptyComponent={!isLoading ? (
+          <View style={styles.empty}>
+            <Text style={{ fontSize: 48 }}>{'\u{1F4AA}'}</Text>
+            <Text style={styles.emptyText}>No logs yet</Text>
+            <Text style={styles.emptySub}>Tap + Log to track your first day</Text>
+          </View>
+        ) : null}
+        renderItem={({ item }) => (
+          <LogCard log={item} onDelete={() => handleDelete(item.id)} onEdit={() => openEdit(item)} />
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+      />
     </ScreenWrapper>
   )
 }

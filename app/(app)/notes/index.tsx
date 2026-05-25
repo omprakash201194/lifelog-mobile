@@ -7,6 +7,7 @@ import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
 import ScreenWrapper from '@/components/ScreenWrapper'
 import ModalForm from '@/components/ModalForm'
 import FormField from '@/components/FormField'
+import SearchBar from '@/components/SearchBar'
 import { useToast } from '@/contexts/ToastContext'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { confirmAction } from '@/components/ConfirmDialog'
@@ -20,16 +21,16 @@ function NoteRow({ note, depth, onSelect, onDelete, onEdit }: {
   return (
     <View>
       <TouchableOpacity style={[styles.noteRow, { paddingLeft: spacing.lg + depth * 16 }]} onPress={() => onSelect(note)}>
-        <TouchableOpacity onPress={() => setOpen(o => !o)} disabled={!hasChildren} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+        <TouchableOpacity onPress={() => setOpen(o => !o)} disabled={!hasChildren} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel={open ? "Collapse" : "Expand"}>
           <Text style={[styles.chevron, !hasChildren && styles.chevronHidden]}>{open ? '\u25BE' : '\u25B8'}</Text>
         </TouchableOpacity>
         <Text style={styles.noteIcon}>{'\u{1F5D2}\uFE0F'}</Text>
         <Text style={styles.noteTitle} numberOfLines={1}>{note.title}</Text>
         {hasChildren && <Text style={styles.childCount}>{note.children.length}</Text>}
-        <TouchableOpacity onPress={() => onEdit(note)} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+        <TouchableOpacity onPress={() => onEdit(note)} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
           <Text style={styles.editIcon}>{'\u270E'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => onDelete(note.id)} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+        <TouchableOpacity onPress={() => onDelete(note.id)} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
           <Text style={styles.deleteIcon}>{'\u2715'}</Text>
         </TouchableOpacity>
       </TouchableOpacity>
@@ -55,6 +56,7 @@ export default function NotesScreen() {
   const [editing, setEditing] = useState<Note | null>(null)
   const [form, setForm] = useState<NoteForm>(blankForm)
   const [selected, setSelected] = useState<Note | null>(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (modalVisible) {
@@ -93,7 +95,10 @@ export default function NotesScreen() {
   }
 
   const set = (k: keyof NoteForm, v: string) => setForm(f => ({ ...f, [k]: v }))
-  const roots = data.filter(n => !n.parentId)
+  const filtered = search
+    ? data.filter(n => n.title.toLowerCase().includes(search.toLowerCase()) || (n.content ?? '').toLowerCase().includes(search.toLowerCase()))
+    : data
+  const roots = filtered.filter(n => !n.parentId)
 
   return (
     <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
@@ -105,8 +110,8 @@ export default function NotesScreen() {
         saving={saveMutation.isPending}
         disabled={isOffline || !form.title.trim()}
       >
-        <FormField label="Title *" value={form.title} onChangeText={t => set('title', t)} placeholder="Note title" />
-        <FormField label="Content" optional value={form.content} onChangeText={t => set('content', t)} placeholder="Write your note..." multiline numberOfLines={8} style={{ height: 180 }} />
+        <FormField label="Title *" value={form.title} onChangeText={t => set('title', t)} placeholder="Note title" maxLength={100} />
+        <FormField label="Content" optional value={form.content} onChangeText={t => set('content', t)} placeholder="Write your note..." multiline numberOfLines={8} style={{ height: 180 }} maxLength={2000} />
         {roots.length > 0 && (
           <>
             <Text style={styles.fieldLabel}>Parent (optional)</Text>
@@ -127,17 +132,18 @@ export default function NotesScreen() {
       </ModalForm>
 
       <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.pageTitle}>Notes</Text>
             <Text style={styles.pageSubtitle}>{data.length} note{data.length === 1 ? '' : 's'}</Text>
           </View>
-          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
+          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new note">
             <Text style={styles.addBtnText}>+ New</Text>
           </TouchableOpacity>
         </View>
       </View>
+      <SearchBar value={search} onChangeText={setSearch} placeholder="Search notes..." />
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />}
       {isError && <Text style={styles.errorText}>Could not load notes</Text>}
       <View style={styles.treeContainer}>

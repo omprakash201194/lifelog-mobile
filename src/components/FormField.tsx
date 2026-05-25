@@ -16,6 +16,7 @@ export default function FormField({ label, optional, style, ...inputProps }: Pro
       <TextInput
         style={[styles.input, inputProps.multiline && styles.multiline, style]}
         placeholderTextColor={colors.text3}
+        accessibilityLabel={label}
         {...inputProps}
       />
     </View>

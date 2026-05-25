@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import apiClient from '@/services/api'
@@ -24,17 +24,17 @@ function fmt(d: string) {
 function ReflectionCard({ ref_: r, onDelete, onEdit }: { ref_: Reflection; onDelete: () => void; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <TouchableOpacity style={styles.card} onPress={() => setExpanded(e => !e)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.card} onPress={() => setExpanded(e => !e)} activeOpacity={0.8} accessibilityRole="button" accessibilityHint="Double tap to expand">
       <View style={styles.cardHeader}>
         <View>
           <Text style={styles.cardDate}>{fmt(r.refDate)}</Text>
           <Text style={{ fontSize: 22, color: moodColor(r.mood) }}>{moodEmoji(r.mood)}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
             <Text style={styles.editIcon}>{'\u270E'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
             <Text style={styles.deleteIcon}>{'\u2715'}</Text>
           </TouchableOpacity>
         </View>
@@ -121,14 +121,14 @@ export default function ReflectionsScreen() {
   const set = (k: keyof RefForm, v: any) => setForm(f => ({ ...f, [k]: v }))
 
   return (
-    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
+    <ScreenWrapper scroll={false} padHorizontal={false}>
       <ModalForm
         visible={modalVisible}
         title={editing ? 'Edit Reflection' : 'New Reflection'}
         onClose={() => setModalVisible(false)}
         onSave={() => saveMutation.mutate(form)}
         saving={saveMutation.isPending}
-        disabled={isOffline}
+        disabled={isOffline || (!form.wentWell.trim() && !form.improve.trim() && !form.gratitude.trim() && !form.tomorrow.trim())}
       >
         <Text style={styles.fieldLabel}>Mood</Text>
         <View style={styles.moodRow}>
@@ -138,37 +138,46 @@ export default function ReflectionsScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <FormField label="What went well?" optional value={form.wentWell} onChangeText={t => set('wentWell', t)} multiline numberOfLines={3} />
-        <FormField label="What to improve?" optional value={form.improve} onChangeText={t => set('improve', t)} multiline numberOfLines={3} />
-        <FormField label="Gratitude" optional value={form.gratitude} onChangeText={t => set('gratitude', t)} multiline numberOfLines={3} />
-        <FormField label="Tomorrow's focus" optional value={form.tomorrow} onChangeText={t => set('tomorrow', t)} multiline numberOfLines={3} />
+        <FormField label="What went well?" optional value={form.wentWell} onChangeText={t => set('wentWell', t)} multiline numberOfLines={3} maxLength={2000} />
+        <FormField label="What to improve?" optional value={form.improve} onChangeText={t => set('improve', t)} multiline numberOfLines={3} maxLength={2000} />
+        <FormField label="Gratitude" optional value={form.gratitude} onChangeText={t => set('gratitude', t)} multiline numberOfLines={3} maxLength={2000} />
+        <FormField label="Tomorrow's focus" optional value={form.tomorrow} onChangeText={t => set('tomorrow', t)} multiline numberOfLines={3} maxLength={2000} />
       </ModalForm>
 
-      <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.pageTitle}>Reflections</Text>
-            <Text style={styles.pageSubtitle}>{data.length} entr{data.length === 1 ? 'y' : 'ies'}</Text>
-          </View>
-          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
-            <Text style={styles.addBtnText}>+ New</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />}
       {isError && <Text style={styles.errorText}>Could not load reflections</Text>}
-      {data.map(r => (
-        <ReflectionCard key={r.id} ref_={r} onDelete={() => handleDelete(r.id)} onEdit={() => openEdit(r)} />
-      ))}
-      {!isLoading && data.length === 0 && (
-        <View style={styles.empty}>
-          <Text style={{ fontSize: 48 }}>{'\u{1FA9E}'}</Text>
-          <Text style={styles.emptyText}>No reflections yet</Text>
-          <Text style={styles.emptySub}>Tap + New to start reviewing your days</Text>
-        </View>
-      )}
-      <View style={{ height: spacing.xxxl }} />
+
+      <FlatList
+        data={data}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}
+        ListHeaderComponent={
+          <View style={styles.pageHeader}>
+            <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+            <View style={styles.headerRow}>
+              <View>
+                <Text style={styles.pageTitle}>Reflections</Text>
+                <Text style={styles.pageSubtitle}>{data.length} entr{data.length === 1 ? 'y' : 'ies'}</Text>
+              </View>
+              <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new reflection">
+                <Text style={styles.addBtnText}>+ New</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={!isLoading ? (
+          <View style={styles.empty}>
+            <Text style={{ fontSize: 48 }}>{'\u{1FA9E}'}</Text>
+            <Text style={styles.emptyText}>No reflections yet</Text>
+            <Text style={styles.emptySub}>Tap + New to start reviewing your days</Text>
+          </View>
+        ) : null}
+        renderItem={({ item }) => (
+          <ReflectionCard ref_={item} onDelete={() => handleDelete(item.id)} onEdit={() => openEdit(item)} />
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+      />
     </ScreenWrapper>
   )
 }

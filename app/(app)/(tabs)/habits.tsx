@@ -85,12 +85,12 @@ function HabitRow({
   const done = todayLog?.completed ?? false
   return (
     <View style={styles.habitRow}>
-      <TouchableOpacity style={[styles.checkBox, done && styles.checkDone]} onPress={onToggle}>
+      <TouchableOpacity style={[styles.checkBox, done && styles.checkDone]} onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={`Mark ${habit.name} as ${done ? 'incomplete' : 'complete'}`}>
         {done && <Text style={styles.checkMark}>{'\u2713'}</Text>}
       </TouchableOpacity>
       <Text style={styles.habitIcon}>{habit.icon || '\u2726'}</Text>
       <Text style={[styles.habitName, done && styles.habitDone]}>{habit.name}</Text>
-      <TouchableOpacity onPress={onEdit} style={styles.editBtn}>
+      <TouchableOpacity onPress={onEdit} style={styles.editBtn} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
         <Text style={styles.editDot}>{'\u2022\u2022\u2022'}</Text>
       </TouchableOpacity>
     </View>
@@ -134,6 +134,8 @@ function HabitModal({
         onChangeText={setName}
         placeholder="Habit name"
         placeholderTextColor={colors.text3}
+        accessibilityLabel="Habit name"
+        maxLength={100}
       />
 
       <Text style={styles.fieldLabel}>Icon</Text>
@@ -142,7 +144,10 @@ function HabitModal({
           <TouchableOpacity
             key={ic}
             style={[styles.iconBtn, icon === ic && styles.iconBtnActive]}
-            onPress={() => setIcon(ic)}>
+            onPress={() => setIcon(ic)}
+            accessibilityRole="button"
+            accessibilityLabel={`Select icon ${ic}`}
+            accessibilityState={{ selected: icon === ic }}>
             <Text style={{ fontSize: 22 }}>{ic}</Text>
           </TouchableOpacity>
         ))}
@@ -154,14 +159,17 @@ function HabitModal({
           <TouchableOpacity
             key={f}
             style={[styles.freqBtn, freq === f && styles.freqActive]}
-            onPress={() => setFreq(f)}>
+            onPress={() => setFreq(f)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: freq === f }}
+            accessibilityLabel={f}>
             <Text style={[styles.freqText, freq === f && styles.freqActiveText]}>{f}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {isEdit && onDelete && (
-        <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
+        <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
           <Text style={styles.deleteBtnText}>Delete habit</Text>
         </TouchableOpacity>
       )}
@@ -246,7 +254,7 @@ export default function HabitsScreen() {
           <Text style={styles.pageTitle}>Habits</Text>
           <Text style={styles.pageSubtitle}>{todayFmt()}</Text>
         </View>
-        <TouchableOpacity style={[styles.addBtn, isOffline && { opacity: 0.4 }]} onPress={openAdd} disabled={isOffline}>
+        <TouchableOpacity style={[styles.addBtn, isOffline && { opacity: 0.4 }]} onPress={openAdd} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new habit">
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -257,7 +265,7 @@ export default function HabitsScreen() {
           <Text style={styles.progressLabel}>{completed}/{activeHabits.length} completed</Text>
           <Text style={[styles.progressPct, pct === 100 && { color: colors.green }]}>{pct}%</Text>
         </View>
-        <View style={styles.progressBg}>
+        <View style={styles.progressBg} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }}>
           <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: pct === 100 ? colors.green : colors.primary }]} />
         </View>
       </View>

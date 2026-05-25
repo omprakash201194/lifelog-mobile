@@ -39,15 +39,15 @@ function TaskItem({
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <TouchableOpacity onPress={() => setExpanded(e => !e)} activeOpacity={0.7}>
+    <TouchableOpacity onPress={() => setExpanded(e => !e)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint="Double tap to expand">
       <View style={styles.taskRow}>
-        <TouchableOpacity style={[styles.checkBox, task.completed && styles.checkDone]} onPress={onToggle}>
+        <TouchableOpacity style={[styles.checkBox, task.completed && styles.checkDone]} onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: task.completed }} accessibilityLabel={`Mark ${task.title} as ${task.completed ? 'incomplete' : 'complete'}`}>
           {task.completed && <Text style={styles.checkMark}>{'\u2713'}</Text>}
         </TouchableOpacity>
         <Text style={[styles.taskTitle, task.completed && styles.taskDone]} numberOfLines={expanded ? undefined : 2}>
           {task.title}
         </Text>
-        <TouchableOpacity onPress={onDelete} style={styles.deleteIcon}>
+        <TouchableOpacity onPress={onDelete} style={styles.deleteIcon} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
           <Text style={styles.deleteIconText}>{'\u2715'}</Text>
         </TouchableOpacity>
       </View>
@@ -95,6 +95,8 @@ function AddTaskModal({
         placeholder="Task title"
         placeholderTextColor={colors.text3}
         autoFocus
+        accessibilityLabel="Task title"
+        maxLength={100}
       />
 
       <TextInput
@@ -104,6 +106,8 @@ function AddTaskModal({
         placeholder="Notes (optional)"
         placeholderTextColor={colors.text3}
         multiline
+        accessibilityLabel="Notes"
+        maxLength={2000}
       />
 
       <Text style={styles.fieldLabel}>Quadrant</Text>
@@ -158,7 +162,7 @@ function QuadrantCard({
             <Text style={styles.quadDesc}>{quadrant.desc}</Text>
           </View>
         </View>
-        <TouchableOpacity style={[styles.addSmallBtn, { borderColor: quadrant.accent }]} onPress={onAdd}>
+        <TouchableOpacity style={[styles.addSmallBtn, { borderColor: quadrant.accent }]} onPress={onAdd} accessibilityRole="button" accessibilityLabel={`Add new task to ${quadrant.label}`}>
           <Text style={[styles.addSmallText, { color: quadrant.accent }]}>+</Text>
         </TouchableOpacity>
       </View>
@@ -246,7 +250,7 @@ export default function TasksScreen() {
           <Text style={styles.pageTitle}>Tasks</Text>
           <Text style={styles.pageSubtitle}>{totalActive} active \u00B7 {totalCompleted} done</Text>
         </View>
-        <TouchableOpacity style={[styles.addBtn, isOffline && { opacity: 0.4 }]} onPress={() => openAdd('DO')} disabled={isOffline}>
+        <TouchableOpacity style={[styles.addBtn, isOffline && { opacity: 0.4 }]} onPress={() => openAdd('DO')} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new task">
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>

@@ -27,7 +27,7 @@ function SectionHeader({ title, onPress, action }: { title: string; onPress?: ()
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {onPress && action ? (
-        <TouchableOpacity onPress={onPress}>
+        <TouchableOpacity onPress={onPress} accessibilityRole="button" accessibilityLabel={action}>
           <Text style={styles.sectionAction}>{action}</Text>
         </TouchableOpacity>
       ) : null}
@@ -86,7 +86,7 @@ export default function DashboardScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.errorText}>Could not load dashboard</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
+        <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()} accessibilityRole="button" accessibilityLabel="Retry">
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
       </View>
@@ -134,11 +134,11 @@ export default function DashboardScreen() {
       <View style={styles.card}>
         <View style={styles.cardRow}>
           <Text style={styles.cardTitle}>Today's habits</Text>
-          <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/habits')}>
+          <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/habits')} accessibilityRole="button" accessibilityLabel="View all habits">
             <Text style={styles.linkText}>View all \u2192</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.progressBg}>
+        <View style={styles.progressBg} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: habitPct }}>
           <View style={[styles.progressFill, { width: `${habitPct}%`, backgroundColor: habitPct === 100 ? colors.green : colors.primary }]} />
         </View>
         <Text style={styles.progressLabel}>
@@ -154,7 +154,10 @@ export default function DashboardScreen() {
             <TouchableOpacity
               style={[styles.focusCheck, data.focusTask.completed && styles.focusCheckDone]}
               disabled={isOffline || data.focusTask.completed}
-              onPress={() => !data.focusTask!.completed && completeFocus.mutate(data.focusTask!.id)}>
+              onPress={() => !data.focusTask!.completed && completeFocus.mutate(data.focusTask!.id)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: data.focusTask.completed }}
+              accessibilityLabel="Complete focus task">
               {data.focusTask.completed && <Text style={styles.checkMark}>{'\u2713'}</Text>}
             </TouchableOpacity>
             <Text style={[styles.focusTitle, data.focusTask.completed && styles.focusDone]}>
@@ -184,7 +187,9 @@ export default function DashboardScreen() {
           <TouchableOpacity
             key={q.label}
             style={[styles.quickTile, { width: tileWidth }]}
-            onPress={() => router.push(q.route as any)}>
+            onPress={() => router.push(q.route as any)}
+            accessibilityRole="button"
+            accessibilityLabel={q.label}>
             <Text style={styles.quickEmoji}>{q.emoji}</Text>
             <Text style={styles.quickLabel}>{q.label}</Text>
             {q.badge?.(data) ? <View style={styles.badge}><Text style={styles.badgeText}>{q.badge(data)}</Text></View> : null}

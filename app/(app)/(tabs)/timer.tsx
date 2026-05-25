@@ -97,7 +97,10 @@ function TaskPicker({
         renderItem={({ item }) => (
           <TouchableOpacity
             style={[styles.pickerRow, selected === item.id && styles.pickerRowActive]}
-            onPress={() => { onSelect(item.id); onClose() }}>
+            onPress={() => { onSelect(item.id); onClose() }}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selected === item.id }}
+            accessibilityLabel={item.id ? item.title : 'No task'}>
             <Text style={[styles.pickerRowText, selected === item.id && styles.pickerRowTextActive]}>
               {item.id ? item.title : '\u2014 No task'}
             </Text>
@@ -198,7 +201,10 @@ export default function TimerScreen() {
             <TouchableOpacity
               key={m.key}
               style={[styles.modeTab, modeIdx === i && { backgroundColor: m.color + '22', borderColor: m.color }]}
-              onPress={() => switchMode(i)}>
+              onPress={() => switchMode(i)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: modeIdx === i }}
+              accessibilityLabel={m.label}>
               <Text style={[styles.modeTabText, modeIdx === i && { color: m.color, fontWeight: fontWeight.semibold }]}>
                 {m.label}
               </Text>
@@ -219,13 +225,15 @@ export default function TimerScreen() {
 
         {/* Controls */}
         <View style={styles.controls}>
-          <TouchableOpacity style={styles.resetBtn} onPress={reset}>
+          <TouchableOpacity style={styles.resetBtn} onPress={reset} accessibilityRole="button" accessibilityLabel="Reset timer">
             <Text style={styles.resetBtnText}>{'\u21BA'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.startBtn, { backgroundColor: mode.color }]}
-            onPress={toggle}>
+            onPress={toggle}
+            accessibilityRole="button"
+            accessibilityLabel={running ? 'Pause timer' : 'Start timer'}>
             <Text style={styles.startBtnText}>{running ? '\u23F8  Pause' : '\u25B6  Start'}</Text>
           </TouchableOpacity>
 
@@ -233,7 +241,7 @@ export default function TimerScreen() {
         </View>
 
         {/* Task selector */}
-        <TouchableOpacity style={styles.taskSelector} onPress={() => setPickerOpen(true)}>
+        <TouchableOpacity style={styles.taskSelector} onPress={() => setPickerOpen(true)} accessibilityRole="button" accessibilityLabel="Select focus task">
           <Text style={styles.taskSelectorLabel}>Focus task</Text>
           <Text style={styles.taskSelectorValue} numberOfLines={1}>
             {selectedTask ? selectedTask.title : 'Tap to select\u2026'}

@@ -47,7 +47,7 @@ export default function ModalForm({
         <View style={[styles.sheet, { maxHeight: modalMaxHeight, paddingBottom: insets.bottom + spacing.lg }]}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={onClose} hitSlop={12}>
+            <TouchableOpacity onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Cancel">
               <Text style={styles.cancelText}>Cancel</Text>
             </TouchableOpacity>
             <Text style={styles.title} numberOfLines={1}>{title}</Text>
@@ -55,6 +55,8 @@ export default function ModalForm({
               onPress={onSave}
               disabled={saving || disabled}
               hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={saveLabel}
             >
               {saving ? (
                 <ActivityIndicator size="small" color={colors.primary} />

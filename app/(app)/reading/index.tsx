@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import apiClient from '@/services/api'
@@ -7,6 +7,7 @@ import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
 import ScreenWrapper from '@/components/ScreenWrapper'
 import ModalForm from '@/components/ModalForm'
 import FormField from '@/components/FormField'
+import SearchBar from '@/components/SearchBar'
 import { useToast } from '@/contexts/ToastContext'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { confirmAction } from '@/components/ConfirmDialog'
@@ -23,24 +24,24 @@ function BookCard({ book, onDelete, onEdit }: { book: Book; onDelete: () => void
   const [expanded, setExpanded] = useState(false)
   const pct = book.pages > 0 ? Math.min(100, Math.round((book.progress / book.pages) * 100)) : 0
   return (
-    <TouchableOpacity style={styles.bookCard} onPress={() => setExpanded(e => !e)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.bookCard} onPress={() => setExpanded(e => !e)} activeOpacity={0.8} accessibilityRole="button" accessibilityHint="Double tap to expand">
       <View style={styles.bookHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.bookTitle} numberOfLines={2}>{book.title}</Text>
           <Text style={styles.bookAuthor}>{book.author}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
             <Text style={styles.editIcon}>{'\u270E'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
             <Text style={styles.deleteIcon}>{'\u2715'}</Text>
           </TouchableOpacity>
         </View>
       </View>
       {book.status === 'reading' && book.pages > 0 && (
         <View style={styles.progressWrap}>
-          <View style={styles.progressTrack}>
+          <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }}>
             <View style={[styles.progressFill, { width: `${pct}%` as any }]} />
           </View>
           <Text style={styles.progressLabel}>{pct}% {'\u00B7'} p{book.progress}/{book.pages}</Text>
@@ -68,6 +69,7 @@ export default function ReadingScreen() {
   const [editing, setEditing] = useState<Book | null>(null)
   const [form, setForm] = useState<BookForm>(blankForm)
   const [tab, setTab] = useState<Book['status']>('reading')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (modalVisible) {
@@ -108,46 +110,36 @@ export default function ReadingScreen() {
     confirmAction({ message: 'Delete this book?', onConfirm: () => deleteMutation.mutate(id) })
   }
 
+  const handleSave = () => {
+    if (form.pages && isNaN(Number(form.pages))) {
+      showToast('Please enter valid numbers', 'error')
+      return
+    }
+    saveMutation.mutate(form)
+  }
+
   const set = (k: keyof BookForm, v: string) => setForm(f => ({ ...f, [k]: v as any }))
-  const shown = data.filter(b => b.status === tab)
+  const filtered = search
+    ? data.filter(b => b.title.toLowerCase().includes(search.toLowerCase()) || (b.author ?? '').toLowerCase().includes(search.toLowerCase()))
+    : data
+  const shown = filtered.filter(b => b.status === tab)
 
-  return (
-    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
-      <ModalForm
-        visible={modalVisible}
-        title={editing ? 'Edit Book' : 'Add Book'}
-        onClose={() => setModalVisible(false)}
-        onSave={() => saveMutation.mutate(form)}
-        saving={saveMutation.isPending}
-        disabled={isOffline || !form.title.trim()}
-      >
-        <FormField label="Title *" value={form.title} onChangeText={t => set('title', t)} placeholder="Book title" />
-        <FormField label="Author" optional value={form.author} onChangeText={t => set('author', t)} placeholder="Author name" />
-        <FormField label="Pages" optional value={form.pages} onChangeText={t => set('pages', t)} keyboardType="number-pad" placeholder="0" />
-        <Text style={styles.fieldLabel}>Status</Text>
-        <View style={styles.toggle}>
-          {STATUS_TABS.map(s => (
-            <TouchableOpacity key={s} style={[styles.toggleBtn, form.status === s && styles.toggleActive]} onPress={() => set('status', s)}>
-              <Text style={[styles.toggleText, form.status === s && styles.toggleActiveText]}>{STATUS_LABEL[s]}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <FormField label="Genre" optional value={form.genre} onChangeText={t => set('genre', t)} placeholder="e.g. Fiction, Self-help" />
-        <FormField label="Notes" optional value={form.notes} onChangeText={t => set('notes', t)} multiline numberOfLines={3} />
-      </ModalForm>
-
+  const ListHeader = (
+    <View>
       <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.pageTitle}>Reading</Text>
             <Text style={styles.pageSubtitle}>{data.length} book{data.length === 1 ? '' : 's'}</Text>
           </View>
-          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
+          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new book">
             <Text style={styles.addBtnText}>+ Add</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      <SearchBar value={search} onChangeText={setSearch} placeholder="Search books..." />
 
       <View style={styles.tabs}>
         {STATUS_TABS.map(s => (
@@ -156,20 +148,57 @@ export default function ReadingScreen() {
           </TouchableOpacity>
         ))}
       </View>
+    </View>
+  )
+
+  const ListEmpty = !isLoading ? (
+    <View style={styles.empty}>
+      <Text style={{ fontSize: 48 }}>{'\u{1F4DA}'}</Text>
+      <Text style={styles.emptyText}>No books here</Text>
+      <Text style={styles.emptySub}>Tap + Add to add your first book</Text>
+    </View>
+  ) : null
+
+  return (
+    <ScreenWrapper scroll={false} padHorizontal={false}>
+      <ModalForm
+        visible={modalVisible}
+        title={editing ? 'Edit Book' : 'Add Book'}
+        onClose={() => setModalVisible(false)}
+        onSave={handleSave}
+        saving={saveMutation.isPending}
+        disabled={isOffline || !form.title.trim()}
+      >
+        <FormField label="Title *" value={form.title} onChangeText={t => set('title', t)} placeholder="Book title" maxLength={100} />
+        <FormField label="Author" optional value={form.author} onChangeText={t => set('author', t)} placeholder="Author name" maxLength={100} />
+        <FormField label="Pages" optional value={form.pages} onChangeText={t => set('pages', t)} keyboardType="numeric" placeholder="0" />
+        <Text style={styles.fieldLabel}>Status</Text>
+        <View style={styles.toggle}>
+          {STATUS_TABS.map(s => (
+            <TouchableOpacity key={s} style={[styles.toggleBtn, form.status === s && styles.toggleActive]} onPress={() => set('status', s)}>
+              <Text style={[styles.toggleText, form.status === s && styles.toggleActiveText]}>{STATUS_LABEL[s]}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <FormField label="Genre" optional value={form.genre} onChangeText={t => set('genre', t)} placeholder="e.g. Fiction, Self-help" maxLength={50} />
+        <FormField label="Notes" optional value={form.notes} onChangeText={t => set('notes', t)} multiline numberOfLines={3} maxLength={2000} />
+      </ModalForm>
 
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />}
       {isError && <Text style={styles.errorText}>Could not load books</Text>}
-      {shown.map(book => (
-        <BookCard key={book.id} book={book} onDelete={() => handleDelete(book.id)} onEdit={() => openEdit(book)} />
-      ))}
-      {!isLoading && shown.length === 0 && (
-        <View style={styles.empty}>
-          <Text style={{ fontSize: 48 }}>{'\u{1F4DA}'}</Text>
-          <Text style={styles.emptyText}>No books here</Text>
-          <Text style={styles.emptySub}>Tap + Add to add your first book</Text>
-        </View>
-      )}
-      <View style={{ height: spacing.xxxl }} />
+
+      <FlatList
+        data={shown}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        renderItem={({ item }) => (
+          <BookCard book={item} onDelete={() => handleDelete(item.id)} onEdit={() => openEdit(item)} />
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+      />
     </ScreenWrapper>
   )
 }
@@ -188,7 +217,7 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: colors.primaryDim, borderColor: colors.primary },
   tabText: { fontSize: fontSize.xxs, color: colors.text3 },
   tabActiveText: { color: colors.primary, fontWeight: fontWeight.semibold },
-  bookCard: { backgroundColor: colors.bgCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, gap: spacing.sm },
+  bookCard: { backgroundColor: colors.bgCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.sm },
   bookHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
   bookTitle: { fontSize: fontSize.base, fontWeight: fontWeight.semibold, color: colors.text1 },
   bookAuthor: { fontSize: fontSize.sm, color: colors.text3 },

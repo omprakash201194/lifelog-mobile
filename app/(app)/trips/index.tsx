@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import apiClient from '@/services/api'
@@ -7,6 +7,7 @@ import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
 import ScreenWrapper from '@/components/ScreenWrapper'
 import ModalForm from '@/components/ModalForm'
 import FormField from '@/components/FormField'
+import SearchBar from '@/components/SearchBar'
 import { useToast } from '@/contexts/ToastContext'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { confirmAction } from '@/components/ConfirmDialog'
@@ -28,7 +29,7 @@ function StarRating({ rating }: { rating: number }) {
 function TripCard({ trip, onDelete, onEdit }: { trip: Trip; onDelete: () => void; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <TouchableOpacity style={styles.card} onPress={() => setExpanded(e => !e)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.card} onPress={() => setExpanded(e => !e)} activeOpacity={0.8} accessibilityRole="button" accessibilityHint="Double tap to expand">
       <View style={styles.cardRow}>
         <Text style={styles.flag}>{trip.flag ?? '\u{1F30D}'}</Text>
         <View style={{ flex: 1 }}>
@@ -40,10 +41,10 @@ function TripCard({ trip, onDelete, onEdit }: { trip: Trip; onDelete: () => void
           <StarRating rating={trip.rating} />
         </View>
         <View style={{ gap: spacing.xs }}>
-          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
             <Text style={styles.editIcon}>{'\u270E'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
             <Text style={styles.deleteIcon}>{'\u2715'}</Text>
           </TouchableOpacity>
         </View>
@@ -81,6 +82,7 @@ export default function TripsScreen() {
   const [modalVisible, setModalVisible] = useState(false)
   const [editing, setEditing] = useState<Trip | null>(null)
   const [form, setForm] = useState<TripForm>(blankForm)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (modalVisible) {
@@ -122,10 +124,13 @@ export default function TripsScreen() {
   }
 
   const set = (k: keyof TripForm, v: any) => setForm(f => ({ ...f, [k]: v }))
+  const filtered = search
+    ? data.filter(t => t.city.toLowerCase().includes(search.toLowerCase()) || t.country.toLowerCase().includes(search.toLowerCase()))
+    : data
   const countries = new Set(data.map(t => t.country)).size
 
   return (
-    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
+    <ScreenWrapper scroll={false} padHorizontal={false}>
       <ModalForm
         visible={modalVisible}
         title={editing ? 'Edit Trip' : 'Add Trip'}
@@ -136,13 +141,13 @@ export default function TripsScreen() {
       >
         <View style={styles.row2}>
           <View style={{ flex: 1 }}>
-            <FormField label="City *" value={form.city} onChangeText={t => set('city', t)} placeholder="Paris" />
+            <FormField label="City *" value={form.city} onChangeText={t => set('city', t)} placeholder="Paris" maxLength={100} />
           </View>
           <View style={{ flex: 1 }}>
-            <FormField label="Country *" value={form.country} onChangeText={t => set('country', t)} placeholder="France" />
+            <FormField label="Country *" value={form.country} onChangeText={t => set('country', t)} placeholder="France" maxLength={100} />
           </View>
         </View>
-        <FormField label="Flag emoji" optional value={form.flag} onChangeText={t => set('flag', t)} placeholder="\u{1F1EB}\u{1F1F7}" />
+        <FormField label="Flag emoji" optional value={form.flag} onChangeText={t => set('flag', t)} placeholder="\u{1F1EB}\u{1F1F7}" maxLength={50} />
         <View style={styles.row2}>
           <View style={{ flex: 1 }}>
             <FormField label="Start date" value={form.startDate} onChangeText={t => set('startDate', t)} />
@@ -159,35 +164,45 @@ export default function TripsScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <FormField label="Highlights" optional value={form.highlights} onChangeText={t => set('highlights', t)} multiline numberOfLines={3} />
-        <FormField label="Notes" optional value={form.notes} onChangeText={t => set('notes', t)} multiline numberOfLines={3} />
+        <FormField label="Highlights" optional value={form.highlights} onChangeText={t => set('highlights', t)} multiline numberOfLines={3} maxLength={2000} />
+        <FormField label="Notes" optional value={form.notes} onChangeText={t => set('notes', t)} multiline numberOfLines={3} maxLength={2000} />
       </ModalForm>
 
-      <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.pageTitle}>Trips</Text>
-            <Text style={styles.pageSubtitle}>{data.length} trips {'\u00B7'} {countries} countr{countries === 1 ? 'y' : 'ies'}</Text>
-          </View>
-          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
-            <Text style={styles.addBtnText}>+ Add</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />}
       {isError && <Text style={styles.errorText}>Could not load trips</Text>}
-      {data.map(trip => (
-        <TripCard key={trip.id} trip={trip} onDelete={() => handleDelete(trip.id)} onEdit={() => openEdit(trip)} />
-      ))}
-      {!isLoading && data.length === 0 && (
-        <View style={styles.empty}>
-          <Text style={{ fontSize: 48 }}>{'\u2708\uFE0F'}</Text>
-          <Text style={styles.emptyText}>No trips yet</Text>
-          <Text style={styles.emptySub}>Add your travel memories</Text>
-        </View>
-      )}
-      <View style={{ height: spacing.xxxl }} />
+
+      <FlatList
+        data={filtered}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}
+        ListHeaderComponent={
+          <View style={styles.pageHeader}>
+            <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+            <View style={styles.headerRow}>
+              <View>
+                <Text style={styles.pageTitle}>Trips</Text>
+                <Text style={styles.pageSubtitle}>{data.length} trips {'\u00B7'} {countries} countr{countries === 1 ? 'y' : 'ies'}</Text>
+              </View>
+              <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new trip">
+                <Text style={styles.addBtnText}>+ Add</Text>
+              </TouchableOpacity>
+            </View>
+            <SearchBar value={search} onChangeText={setSearch} placeholder="Search trips..." />
+          </View>
+        }
+        ListEmptyComponent={!isLoading ? (
+          <View style={styles.empty}>
+            <Text style={{ fontSize: 48 }}>{'\u2708\uFE0F'}</Text>
+            <Text style={styles.emptyText}>No trips yet</Text>
+            <Text style={styles.emptySub}>Add your travel memories</Text>
+          </View>
+        ) : null}
+        renderItem={({ item }) => (
+          <TripCard trip={item} onDelete={() => handleDelete(item.id)} onEdit={() => openEdit(item)} />
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+      />
     </ScreenWrapper>
   )
 }

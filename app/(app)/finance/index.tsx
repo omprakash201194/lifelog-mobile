@@ -129,6 +129,17 @@ export default function FinanceScreen() {
   })
 
   const handleSave = () => {
+    if (modalType === 'asset' && assetForm.value && isNaN(Number(assetForm.value))) {
+      showToast('Please enter valid numbers', 'error'); return
+    }
+    if (modalType === 'liability') {
+      const nums = [liabForm.balance, liabForm.rate, liabForm.monthly].filter(v => v)
+      if (nums.some(v => isNaN(Number(v)))) { showToast('Please enter valid numbers', 'error'); return }
+    }
+    if (modalType === 'goal') {
+      const nums = [goalForm.target, goalForm.saved, goalForm.monthly].filter(v => v)
+      if (nums.some(v => isNaN(Number(v)))) { showToast('Please enter valid numbers', 'error'); return }
+    }
     if (modalType === 'asset') saveAsset.mutate(assetForm)
     else if (modalType === 'liability') saveLiab.mutate(liabForm)
     else if (modalType === 'goal') saveGoalMut.mutate(goalForm)
@@ -161,11 +172,11 @@ export default function FinanceScreen() {
         onClose={() => setModalType(null)}
         onSave={handleSave}
         saving={isSaving}
-        disabled={isOffline}
+        disabled={isOffline || (modalType === 'asset' && !assetForm.name.trim()) || (modalType === 'liability' && !liabForm.name.trim()) || (modalType === 'goal' && !goalForm.name.trim())}
       >
         {modalType === 'asset' && (
           <>
-            <FormField label="Name *" value={assetForm.name} onChangeText={t => setAssetForm(f => ({ ...f, name: t }))} placeholder="Savings account" />
+            <FormField label="Name *" value={assetForm.name} onChangeText={t => setAssetForm(f => ({ ...f, name: t }))} placeholder="Savings account" maxLength={100} />
             <Text style={styles.fieldLabel}>Category</Text>
             <View style={styles.chipRow}>
               {ASSET_CATS.map(c => (
@@ -174,14 +185,14 @@ export default function FinanceScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <FormField label="Value" value={assetForm.value} onChangeText={t => setAssetForm(f => ({ ...f, value: t }))} keyboardType="decimal-pad" placeholder="0" />
+            <FormField label="Value" value={assetForm.value} onChangeText={t => setAssetForm(f => ({ ...f, value: t }))} keyboardType="numeric" placeholder="0" />
             <FormField label="Acquired" optional value={assetForm.acquired} onChangeText={t => setAssetForm(f => ({ ...f, acquired: t }))} placeholder="YYYY-MM-DD" />
-            <FormField label="Notes" optional value={assetForm.notes} onChangeText={t => setAssetForm(f => ({ ...f, notes: t }))} multiline numberOfLines={2} />
+            <FormField label="Notes" optional value={assetForm.notes} onChangeText={t => setAssetForm(f => ({ ...f, notes: t }))} multiline numberOfLines={2} maxLength={2000} />
           </>
         )}
         {modalType === 'liability' && (
           <>
-            <FormField label="Name *" value={liabForm.name} onChangeText={t => setLiabForm(f => ({ ...f, name: t }))} placeholder="Car loan" />
+            <FormField label="Name *" value={liabForm.name} onChangeText={t => setLiabForm(f => ({ ...f, name: t }))} placeholder="Car loan" maxLength={100} />
             <Text style={styles.fieldLabel}>Category</Text>
             <View style={styles.chipRow}>
               {LIAB_CATS.map(c => (
@@ -190,16 +201,16 @@ export default function FinanceScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <FormField label="Balance" value={liabForm.balance} onChangeText={t => setLiabForm(f => ({ ...f, balance: t }))} keyboardType="decimal-pad" placeholder="0" />
+            <FormField label="Balance" value={liabForm.balance} onChangeText={t => setLiabForm(f => ({ ...f, balance: t }))} keyboardType="numeric" placeholder="0" />
             <View style={styles.row2}>
               <View style={{ flex: 1 }}>
-                <FormField label="Rate (%)" value={liabForm.rate} onChangeText={t => setLiabForm(f => ({ ...f, rate: t }))} keyboardType="decimal-pad" placeholder="0" />
+                <FormField label="Rate (%)" value={liabForm.rate} onChangeText={t => setLiabForm(f => ({ ...f, rate: t }))} keyboardType="numeric" placeholder="0" />
               </View>
               <View style={{ flex: 1 }}>
-                <FormField label="Monthly" value={liabForm.monthly} onChangeText={t => setLiabForm(f => ({ ...f, monthly: t }))} keyboardType="decimal-pad" placeholder="0" />
+                <FormField label="Monthly" value={liabForm.monthly} onChangeText={t => setLiabForm(f => ({ ...f, monthly: t }))} keyboardType="numeric" placeholder="0" />
               </View>
             </View>
-            <FormField label="Notes" optional value={liabForm.notes} onChangeText={t => setLiabForm(f => ({ ...f, notes: t }))} multiline numberOfLines={2} />
+            <FormField label="Notes" optional value={liabForm.notes} onChangeText={t => setLiabForm(f => ({ ...f, notes: t }))} multiline numberOfLines={2} maxLength={2000} />
           </>
         )}
         {modalType === 'goal' && (
@@ -209,20 +220,20 @@ export default function FinanceScreen() {
                 <FormField label="Emoji" value={goalForm.emoji} onChangeText={t => setGoalForm(f => ({ ...f, emoji: t }))} />
               </View>
               <View style={{ flex: 1 }}>
-                <FormField label="Name *" value={goalForm.name} onChangeText={t => setGoalForm(f => ({ ...f, name: t }))} placeholder="Emergency fund" />
+                <FormField label="Name *" value={goalForm.name} onChangeText={t => setGoalForm(f => ({ ...f, name: t }))} placeholder="Emergency fund" maxLength={100} />
               </View>
             </View>
             <View style={styles.row2}>
               <View style={{ flex: 1 }}>
-                <FormField label="Target" value={goalForm.target} onChangeText={t => setGoalForm(f => ({ ...f, target: t }))} keyboardType="decimal-pad" placeholder="0" />
+                <FormField label="Target" value={goalForm.target} onChangeText={t => setGoalForm(f => ({ ...f, target: t }))} keyboardType="numeric" placeholder="0" />
               </View>
               <View style={{ flex: 1 }}>
-                <FormField label="Saved" value={goalForm.saved} onChangeText={t => setGoalForm(f => ({ ...f, saved: t }))} keyboardType="decimal-pad" placeholder="0" />
+                <FormField label="Saved" value={goalForm.saved} onChangeText={t => setGoalForm(f => ({ ...f, saved: t }))} keyboardType="numeric" placeholder="0" />
               </View>
             </View>
             <View style={styles.row2}>
               <View style={{ flex: 1 }}>
-                <FormField label="Monthly" value={goalForm.monthly} onChangeText={t => setGoalForm(f => ({ ...f, monthly: t }))} keyboardType="decimal-pad" placeholder="0" />
+                <FormField label="Monthly" value={goalForm.monthly} onChangeText={t => setGoalForm(f => ({ ...f, monthly: t }))} keyboardType="numeric" placeholder="0" />
               </View>
               <View style={{ flex: 1 }}>
                 <FormField label="Deadline" value={goalForm.deadline} onChangeText={t => setGoalForm(f => ({ ...f, deadline: t }))} placeholder="YYYY-MM" />
@@ -244,17 +255,17 @@ export default function FinanceScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <FormField label="Notes" optional value={goalForm.notes} onChangeText={t => setGoalForm(f => ({ ...f, notes: t }))} multiline numberOfLines={2} />
+            <FormField label="Notes" optional value={goalForm.notes} onChangeText={t => setGoalForm(f => ({ ...f, notes: t }))} multiline numberOfLines={2} maxLength={2000} />
           </>
         )}
       </ModalForm>
 
       <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
         <View style={styles.headerRow}>
           <Text style={styles.pageTitle}>Finance</Text>
           {tab !== 'overview' && (
-            <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
+            <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new entry">
               <Text style={styles.addBtnText}>+ Add</Text>
             </TouchableOpacity>
           )}
@@ -328,10 +339,10 @@ export default function FinanceScreen() {
                     </View>
                     <Text style={[styles.lineValue, { color: colors.green }]}>{fmt(a.value)}</Text>
                     <View style={{ flexDirection: 'row', gap: spacing.xs, marginLeft: spacing.sm }}>
-                      <TouchableOpacity onPress={() => { setEditingAsset(a); setModalType('asset') }} hitSlop={8}>
+                      <TouchableOpacity onPress={() => { setEditingAsset(a); setModalType('asset') }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
                         <Text style={styles.editIcon}>{'\u270E'}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => confirmAction({ message: `Delete "${a.name}"?`, onConfirm: () => deleteAsset.mutate(a.id) })} hitSlop={8}>
+                      <TouchableOpacity onPress={() => confirmAction({ message: `Delete "${a.name}"?`, onConfirm: () => deleteAsset.mutate(a.id) })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
                         <Text style={styles.deleteIcon}>{'\u2715'}</Text>
                       </TouchableOpacity>
                     </View>
@@ -340,6 +351,13 @@ export default function FinanceScreen() {
               </View>
             </View>
           ))}
+          {(assets.data ?? []).length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>{'\u{1F4B0}'}</Text>
+              <Text style={styles.emptyTitle}>No assets yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first assets</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -358,10 +376,10 @@ export default function FinanceScreen() {
                     </View>
                     <Text style={[styles.lineValue, { color: colors.rose }]}>{fmt(l.balance)}</Text>
                     <View style={{ flexDirection: 'row', gap: spacing.xs, marginLeft: spacing.sm }}>
-                      <TouchableOpacity onPress={() => { setEditingLiab(l); setModalType('liability') }} hitSlop={8}>
+                      <TouchableOpacity onPress={() => { setEditingLiab(l); setModalType('liability') }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
                         <Text style={styles.editIcon}>{'\u270E'}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => confirmAction({ message: `Delete "${l.name}"?`, onConfirm: () => deleteLiab.mutate(l.id) })} hitSlop={8}>
+                      <TouchableOpacity onPress={() => confirmAction({ message: `Delete "${l.name}"?`, onConfirm: () => deleteLiab.mutate(l.id) })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
                         <Text style={styles.deleteIcon}>{'\u2715'}</Text>
                       </TouchableOpacity>
                     </View>
@@ -370,6 +388,13 @@ export default function FinanceScreen() {
               </View>
             </View>
           ))}
+          {(liabs.data ?? []).length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>{'\u{1F4C9}'}</Text>
+              <Text style={styles.emptyTitle}>No liabilities yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first liabilities</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -394,16 +419,16 @@ export default function FinanceScreen() {
                     <Text style={[styles.priorityText, { color }]}>{g.priority}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', gap: spacing.xs, marginLeft: spacing.sm }}>
-                    <TouchableOpacity onPress={() => { setEditingGoal(g); setModalType('goal') }} hitSlop={8}>
+                    <TouchableOpacity onPress={() => { setEditingGoal(g); setModalType('goal') }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
                       <Text style={styles.editIcon}>{'\u270E'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => confirmAction({ message: `Delete "${g.name}"?`, onConfirm: () => deleteGoalMut.mutate(g.id) })} hitSlop={8}>
+                    <TouchableOpacity onPress={() => confirmAction({ message: `Delete "${g.name}"?`, onConfirm: () => deleteGoalMut.mutate(g.id) })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
                       <Text style={styles.deleteIcon}>{'\u2715'}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
                 <View style={styles.goalProgress}>
-                  <View style={styles.progressTrack}>
+                  <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }}>
                     <View style={[styles.progressFill, { width: `${pct}%` as any, backgroundColor: colors.primary }]} />
                   </View>
                   <Text style={styles.goalPct}>{fmt(g.saved)} / {fmt(g.target)} ({pct}%)</Text>
@@ -411,6 +436,13 @@ export default function FinanceScreen() {
               </View>
             )
           })}
+          {(goals.data ?? []).length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>{'\u{1F3AF}'}</Text>
+              <Text style={styles.emptyTitle}>No goals yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first goals</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -466,4 +498,9 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primaryDim, borderColor: colors.primary },
   chipText: { fontSize: fontSize.sm, color: colors.text2 },
   chipActiveText: { color: colors.primary, fontWeight: fontWeight.semibold },
+  // Empty states
+  empty: { alignItems: 'center', paddingVertical: spacing.xxxl, gap: spacing.sm },
+  emptyEmoji: { fontSize: 48 },
+  emptyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text2 },
+  emptySub: { fontSize: fontSize.sm, color: colors.text3 },
 })

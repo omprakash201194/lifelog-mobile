@@ -32,7 +32,7 @@ const MODULES: {
 // ── Module tile ────────────────────────────────────────────────
 function ModuleTile({ mod, onPress, tileWidth }: { mod: typeof MODULES[number]; onPress: () => void; tileWidth: number }) {
   return (
-    <TouchableOpacity style={[styles.tile, { width: tileWidth }]} onPress={onPress} activeOpacity={0.75}>
+    <TouchableOpacity style={[styles.tile, { width: tileWidth }]} onPress={onPress} activeOpacity={0.75} accessibilityRole="button" accessibilityLabel={mod.label} accessibilityHint={mod.desc}>
       <Text style={styles.tileEmoji}>{mod.emoji}</Text>
       <Text style={styles.tileLabel}>{mod.label}</Text>
       <Text style={styles.tileDesc} numberOfLines={2}>{mod.desc}</Text>
@@ -43,7 +43,7 @@ function ModuleTile({ mod, onPress, tileWidth }: { mod: typeof MODULES[number]; 
 // ── Settings shortcut ──────────────────────────────────────────
 function SettingsRow({ onPress }: { onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.settingsRow} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.settingsRow} onPress={onPress} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Settings">
       <View style={styles.settingsIcon}>
         <Text style={{ fontSize: 20 }}>{'\u2699\uFE0F'}</Text>
       </View>

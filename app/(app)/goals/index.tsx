@@ -29,7 +29,7 @@ function GoalCard({ goal, onToggleMilestone, onDelete, onEdit }: {
   const color = STATUS_COLOR[goal.status] ?? colors.text3
 
   return (
-    <TouchableOpacity style={styles.goalCard} onPress={() => setExpanded(e => !e)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.goalCard} onPress={() => setExpanded(e => !e)} activeOpacity={0.8} accessibilityRole="button" accessibilityHint="Double tap to expand">
       <View style={styles.goalHeader}>
         <View style={{ flex: 1, gap: 4 }}>
           <View style={styles.goalTags}>
@@ -40,17 +40,17 @@ function GoalCard({ goal, onToggleMilestone, onDelete, onEdit }: {
           <Text style={styles.goalTitle}>{goal.title}</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
             <Text style={styles.editIcon}>{'\u270E'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
             <Text style={styles.deleteIcon}>{'\u2715'}</Text>
           </TouchableOpacity>
         </View>
       </View>
       {total > 0 && (
         <View style={styles.progressWrap}>
-          <View style={styles.progressTrack}>
+          <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: pct }}>
             <View style={[styles.progressFill, { width: `${pct}%` as any, backgroundColor: color }]} />
           </View>
           <Text style={styles.progressLabel}>{done}/{total} milestones</Text>
@@ -60,7 +60,7 @@ function GoalCard({ goal, onToggleMilestone, onDelete, onEdit }: {
       {expanded && goal.milestones.length > 0 && (
         <View style={styles.milestoneList}>
           {goal.milestones.sort((a, b) => a.sortOrder - b.sortOrder).map(m => (
-            <TouchableOpacity key={m.id} style={styles.milestoneRow} onPress={() => onToggleMilestone(goal.id, m.id, !m.done)}>
+            <TouchableOpacity key={m.id} style={styles.milestoneRow} onPress={() => onToggleMilestone(goal.id, m.id, !m.done)} accessibilityRole="checkbox" accessibilityState={{ checked: m.done }}>
               <View style={[styles.mCheck, m.done && { backgroundColor: colors.green, borderColor: colors.green }]}>
                 {m.done && <Text style={{ color: '#000', fontSize: 10, fontWeight: '700' }}>{'\u2713'}</Text>}
               </View>
@@ -150,12 +150,12 @@ export default function GoalsScreen() {
         saving={saveMutation.isPending}
         disabled={isOffline || !form.title.trim()}
       >
-        <FormField label="Title *" value={form.title} onChangeText={t => set('title', t)} placeholder="What do you want to achieve?" />
-        <FormField label="Description" optional value={form.description} onChangeText={t => set('description', t)} placeholder="Why does this matter?" multiline numberOfLines={3} />
+        <FormField label="Title *" value={form.title} onChangeText={t => set('title', t)} placeholder="What do you want to achieve?" maxLength={100} />
+        <FormField label="Description" optional value={form.description} onChangeText={t => set('description', t)} placeholder="Why does this matter?" multiline numberOfLines={3} maxLength={2000} />
         <Text style={styles.fieldLabel}>Category</Text>
         <View style={styles.chipRow}>
           {CATEGORIES.map(c => (
-            <TouchableOpacity key={c} style={[styles.chip, form.category === c && styles.chipActive]} onPress={() => set('category', c)}>
+            <TouchableOpacity key={c} style={[styles.chip, form.category === c && styles.chipActive]} onPress={() => set('category', c)} accessibilityRole="tab" accessibilityState={{ selected: form.category === c }}>
               <Text style={[styles.chipText, form.category === c && styles.chipActiveText]}>{c}</Text>
             </TouchableOpacity>
           ))}
@@ -163,7 +163,7 @@ export default function GoalsScreen() {
         <Text style={styles.fieldLabel}>Timeframe</Text>
         <View style={styles.chipRow}>
           {TIMEFRAMES.map(t => (
-            <TouchableOpacity key={t} style={[styles.chip, form.timeframe === t && styles.chipActive]} onPress={() => set('timeframe', t)}>
+            <TouchableOpacity key={t} style={[styles.chip, form.timeframe === t && styles.chipActive]} onPress={() => set('timeframe', t)} accessibilityRole="tab" accessibilityState={{ selected: form.timeframe === t }}>
               <Text style={[styles.chipText, form.timeframe === t && styles.chipActiveText]}>{t}</Text>
             </TouchableOpacity>
           ))}
@@ -171,13 +171,13 @@ export default function GoalsScreen() {
       </ModalForm>
 
       <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.pageTitle}>Goals</Text>
             <Text style={styles.pageSubtitle}>{active.length} active {'\u00B7'} {completed.length} done</Text>
           </View>
-          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
+          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new goal">
             <Text style={styles.addBtnText}>+ New</Text>
           </TouchableOpacity>
         </View>

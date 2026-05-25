@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView, FlatList, RefreshControl } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import apiClient from '@/services/api'
@@ -7,6 +7,7 @@ import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
 import ScreenWrapper from '@/components/ScreenWrapper'
 import ModalForm from '@/components/ModalForm'
 import FormField from '@/components/FormField'
+import SearchBar from '@/components/SearchBar'
 import { useToast } from '@/contexts/ToastContext'
 import { useNetworkStatus } from '@/hooks/useNetworkStatus'
 import { confirmAction } from '@/components/ConfirmDialog'
@@ -19,7 +20,7 @@ function StarRating({ rating }: { rating: number }) {
 function ExperienceCard({ exp, onDelete, onEdit }: { exp: Experience; onDelete: () => void; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false)
   return (
-    <TouchableOpacity style={styles.card} onPress={() => setExpanded(e => !e)} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.card} onPress={() => setExpanded(e => !e)} activeOpacity={0.8} accessibilityRole="button" accessibilityHint="Double tap to expand">
       <View style={styles.cardRow}>
         <View style={{ flex: 1, gap: 4 }}>
           <View style={styles.tags}>
@@ -35,10 +36,10 @@ function ExperienceCard({ exp, onDelete, onEdit }: { exp: Experience; onDelete: 
         <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
           <StarRating rating={exp.rating} />
           <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-            <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+            <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
               <Text style={styles.editIcon}>{'\u270E'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+            <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
               <Text style={styles.deleteIcon}>{'\u2715'}</Text>
             </TouchableOpacity>
           </View>
@@ -70,6 +71,7 @@ export default function ExperiencesScreen() {
   const [editing, setEditing] = useState<Experience | null>(null)
   const [form, setForm] = useState<ExpForm>(blankForm)
   const [filter, setFilter] = useState<string>('all')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (modalVisible) {
@@ -111,11 +113,14 @@ export default function ExperiencesScreen() {
   }
 
   const set = (k: keyof ExpForm, v: any) => setForm(f => ({ ...f, [k]: v }))
+  const filtered = search
+    ? data.filter(e => e.title.toLowerCase().includes(search.toLowerCase()) || e.category.toLowerCase().includes(search.toLowerCase()))
+    : data
   const categories = ['all', ...Array.from(new Set(data.map(e => e.category)))]
-  const shown = filter === 'all' ? data : data.filter(e => e.category === filter)
+  const shown = filter === 'all' ? filtered : filtered.filter(e => e.category === filter)
 
   return (
-    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
+    <ScreenWrapper scroll={false} padHorizontal={false}>
       <ModalForm
         visible={modalVisible}
         title={editing ? 'Edit Experience' : 'Add Experience'}
@@ -124,7 +129,7 @@ export default function ExperiencesScreen() {
         saving={saveMutation.isPending}
         disabled={isOffline || !form.title.trim()}
       >
-        <FormField label="Title *" value={form.title} onChangeText={t => set('title', t)} placeholder="What did you do?" />
+        <FormField label="Title *" value={form.title} onChangeText={t => set('title', t)} placeholder="What did you do?" maxLength={100} />
         <Text style={styles.fieldLabel}>Category</Text>
         <View style={styles.chipRow}>
           {CATEGORIES.map(c => (
@@ -133,7 +138,7 @@ export default function ExperiencesScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <FormField label="Sub-category" optional value={form.subCategory} onChangeText={t => set('subCategory', t)} placeholder="e.g. skydiving" />
+        <FormField label="Sub-category" optional value={form.subCategory} onChangeText={t => set('subCategory', t)} placeholder="e.g. skydiving" maxLength={50} />
         <FormField label="Date" value={form.expDate} onChangeText={t => set('expDate', t)} />
         <Text style={styles.fieldLabel}>Rating</Text>
         <View style={styles.ratingRow}>
@@ -143,46 +148,56 @@ export default function ExperiencesScreen() {
             </TouchableOpacity>
           ))}
         </View>
-        <FormField label="Location" optional value={form.location} onChangeText={t => set('location', t)} placeholder="City, Country" />
-        <FormField label="Notes" optional value={form.note} onChangeText={t => set('note', t)} multiline numberOfLines={4} />
+        <FormField label="Location" optional value={form.location} onChangeText={t => set('location', t)} placeholder="City, Country" maxLength={100} />
+        <FormField label="Notes" optional value={form.note} onChangeText={t => set('note', t)} multiline numberOfLines={4} maxLength={2000} />
       </ModalForm>
-
-      <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.pageTitle}>Experiences</Text>
-            <Text style={styles.pageSubtitle}>{data.length} experience{data.length === 1 ? '' : 's'}</Text>
-          </View>
-          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
-            <Text style={styles.addBtnText}>+ Add</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.lg }}>
-        <View style={styles.filterRow}>
-          {categories.map(c => (
-            <TouchableOpacity key={c} style={[styles.filterChip, filter === c && styles.filterChipActive]} onPress={() => setFilter(c)}>
-              <Text style={[styles.filterText, filter === c && styles.filterTextActive]}>{c}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
 
       {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />}
       {isError && <Text style={styles.errorText}>Could not load experiences</Text>}
-      {shown.map(exp => (
-        <ExperienceCard key={exp.id} exp={exp} onDelete={() => handleDelete(exp.id)} onEdit={() => openEdit(exp)} />
-      ))}
-      {!isLoading && data.length === 0 && (
-        <View style={styles.empty}>
-          <Text style={{ fontSize: 48 }}>{'\u{1F31F}'}</Text>
-          <Text style={styles.emptyText}>No experiences yet</Text>
-          <Text style={styles.emptySub}>Log the things that make life worth living</Text>
-        </View>
-      )}
-      <View style={{ height: spacing.xxxl }} />
+
+      <FlatList
+        data={shown}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg }}
+        refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}
+        ListHeaderComponent={
+          <View>
+            <View style={styles.pageHeader}>
+              <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+              <View style={styles.headerRow}>
+                <View>
+                  <Text style={styles.pageTitle}>Experiences</Text>
+                  <Text style={styles.pageSubtitle}>{data.length} experience{data.length === 1 ? '' : 's'}</Text>
+                </View>
+                <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new experience">
+                  <Text style={styles.addBtnText}>+ Add</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <SearchBar value={search} onChangeText={setSearch} placeholder="Search experiences..." />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.lg }}>
+              <View style={styles.filterRow}>
+                {categories.map(c => (
+                  <TouchableOpacity key={c} style={[styles.filterChip, filter === c && styles.filterChipActive]} onPress={() => setFilter(c)} accessibilityRole="tab" accessibilityState={{ selected: filter === c }}>
+                    <Text style={[styles.filterText, filter === c && styles.filterTextActive]}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        }
+        ListEmptyComponent={!isLoading ? (
+          <View style={styles.empty}>
+            <Text style={{ fontSize: 48 }}>{'\u{1F31F}'}</Text>
+            <Text style={styles.emptyText}>No experiences yet</Text>
+            <Text style={styles.emptySub}>Log the things that make life worth living</Text>
+          </View>
+        ) : null}
+        renderItem={({ item }) => (
+          <ExperienceCard exp={item} onDelete={() => handleDelete(item.id)} onEdit={() => openEdit(item)} />
+        )}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+      />
     </ScreenWrapper>
   )
 }

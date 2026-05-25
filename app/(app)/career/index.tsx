@@ -150,6 +150,10 @@ export default function CareerScreen() {
   })
 
   const handleSave = () => {
+    if (tab === 'salary' && salaryForm.salary && isNaN(Number(salaryForm.salary))) {
+      showToast('Please enter valid numbers', 'error')
+      return
+    }
     if (tab === 'roles') saveRole.mutate(roleForm)
     if (tab === 'skills') saveSkill.mutate(skillForm)
     if (tab === 'achievements') saveAch.mutate(achForm)
@@ -173,12 +177,12 @@ export default function CareerScreen() {
         onClose={() => setModalVisible(false)}
         onSave={handleSave}
         saving={isSaving}
-        disabled={isOffline}
+        disabled={isOffline || (tab === 'roles' && !roleForm.title.trim()) || (tab === 'skills' && !skillForm.name.trim()) || (tab === 'achievements' && !achForm.title.trim()) || (tab === 'salary' && !salaryForm.role.trim())}
       >
         {tab === 'roles' && (
           <>
-            <FormField label="Title *" value={roleForm.title} onChangeText={t => setRoleForm(f => ({ ...f, title: t }))} placeholder="Software Engineer" />
-            <FormField label="Company *" value={roleForm.company} onChangeText={t => setRoleForm(f => ({ ...f, company: t }))} placeholder="Acme Inc." />
+            <FormField label="Title *" value={roleForm.title} onChangeText={t => setRoleForm(f => ({ ...f, title: t }))} placeholder="Software Engineer" maxLength={100} />
+            <FormField label="Company *" value={roleForm.company} onChangeText={t => setRoleForm(f => ({ ...f, company: t }))} placeholder="Acme Inc." maxLength={100} />
             <View style={styles.row2}>
               <View style={{ flex: 1 }}>
                 <FormField label="Start date" value={roleForm.startDate} onChangeText={t => setRoleForm(f => ({ ...f, startDate: t }))} placeholder="YYYY-MM" />
@@ -187,19 +191,19 @@ export default function CareerScreen() {
                 <FormField label="End date" value={roleForm.endDate} onChangeText={t => setRoleForm(f => ({ ...f, endDate: t }))} placeholder="YYYY-MM" />
               </View>
             </View>
-            <TouchableOpacity style={styles.toggleRow} onPress={() => setRoleForm(f => ({ ...f, isCurrent: !f.isCurrent }))}>
+            <TouchableOpacity style={styles.toggleRow} onPress={() => setRoleForm(f => ({ ...f, isCurrent: !f.isCurrent }))} accessibilityRole="checkbox" accessibilityState={{ checked: roleForm.isCurrent }}>
               <View style={[styles.checkbox, roleForm.isCurrent && styles.checkboxActive]}>
                 {roleForm.isCurrent && <Text style={{ color: '#000', fontSize: 10, fontWeight: '700' }}>{'\u2713'}</Text>}
               </View>
               <Text style={styles.toggleLabel}>Current role</Text>
             </TouchableOpacity>
-            <FormField label="Highlights" optional value={roleForm.highlights} onChangeText={t => setRoleForm(f => ({ ...f, highlights: t }))} multiline numberOfLines={3} />
-            <FormField label="Tech tags (comma-separated)" optional value={roleForm.techTags} onChangeText={t => setRoleForm(f => ({ ...f, techTags: t }))} placeholder="React, Node.js, AWS" />
+            <FormField label="Highlights" optional value={roleForm.highlights} onChangeText={t => setRoleForm(f => ({ ...f, highlights: t }))} multiline numberOfLines={3} maxLength={2000} />
+            <FormField label="Tech tags (comma-separated)" optional value={roleForm.techTags} onChangeText={t => setRoleForm(f => ({ ...f, techTags: t }))} placeholder="React, Node.js, AWS" maxLength={200} />
           </>
         )}
         {tab === 'skills' && (
           <>
-            <FormField label="Skill name *" value={skillForm.name} onChangeText={t => setSkillForm(f => ({ ...f, name: t }))} placeholder="TypeScript" />
+            <FormField label="Skill name *" value={skillForm.name} onChangeText={t => setSkillForm(f => ({ ...f, name: t }))} placeholder="TypeScript" maxLength={100} />
             <Text style={styles.fieldLabel}>Level</Text>
             <View style={styles.levelRow}>
               {[1, 2, 3, 4, 5].map(n => (
@@ -220,7 +224,7 @@ export default function CareerScreen() {
         )}
         {tab === 'achievements' && (
           <>
-            <FormField label="Title *" value={achForm.title} onChangeText={t => setAchForm(f => ({ ...f, title: t }))} placeholder="Led migration to microservices" />
+            <FormField label="Title *" value={achForm.title} onChangeText={t => setAchForm(f => ({ ...f, title: t }))} placeholder="Led migration to microservices" maxLength={100} />
             <FormField label="Date" value={achForm.achDate} onChangeText={t => setAchForm(f => ({ ...f, achDate: t }))} placeholder="YYYY-MM-DD" />
             <Text style={styles.fieldLabel}>Category</Text>
             <View style={styles.chipRow}>
@@ -230,27 +234,27 @@ export default function CareerScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <FormField label="Impact" optional value={achForm.impact} onChangeText={t => setAchForm(f => ({ ...f, impact: t }))} multiline numberOfLines={3} placeholder="Describe the impact..." />
+            <FormField label="Impact" optional value={achForm.impact} onChangeText={t => setAchForm(f => ({ ...f, impact: t }))} multiline numberOfLines={3} placeholder="Describe the impact..." maxLength={2000} />
           </>
         )}
         {tab === 'salary' && (
           <>
-            <FormField label="Role *" value={salaryForm.role} onChangeText={t => setSalaryForm(f => ({ ...f, role: t }))} placeholder="Senior Engineer" />
-            <FormField label="Company *" value={salaryForm.company} onChangeText={t => setSalaryForm(f => ({ ...f, company: t }))} placeholder="Acme Inc." />
-            <FormField label="Years" value={salaryForm.years} onChangeText={t => setSalaryForm(f => ({ ...f, years: t }))} placeholder="2023-2024" />
-            <FormField label="Salary" value={salaryForm.salary} onChangeText={t => setSalaryForm(f => ({ ...f, salary: t }))} keyboardType="decimal-pad" placeholder="0" />
+            <FormField label="Role *" value={salaryForm.role} onChangeText={t => setSalaryForm(f => ({ ...f, role: t }))} placeholder="Senior Engineer" maxLength={100} />
+            <FormField label="Company *" value={salaryForm.company} onChangeText={t => setSalaryForm(f => ({ ...f, company: t }))} placeholder="Acme Inc." maxLength={100} />
+            <FormField label="Years" value={salaryForm.years} onChangeText={t => setSalaryForm(f => ({ ...f, years: t }))} placeholder="2023-2024" maxLength={50} />
+            <FormField label="Salary" value={salaryForm.salary} onChangeText={t => setSalaryForm(f => ({ ...f, salary: t }))} keyboardType="numeric" placeholder="0" />
           </>
         )}
       </ModalForm>
 
       <View style={styles.pageHeader}>
-        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.pageTitle}>Career</Text>
             <Text style={styles.pageSubtitle}>{roles.data?.length ?? 0} roles {'\u00B7'} {skills.data?.length ?? 0} skills</Text>
           </View>
-          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
+          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline} accessibilityRole="button" accessibilityLabel="Add new entry">
             <Text style={styles.addBtnText}>+ Add</Text>
           </TouchableOpacity>
         </View>
@@ -282,10 +286,10 @@ export default function CareerScreen() {
                   <Text style={styles.roleTitle}>{r.title}</Text>
                   {r.isCurrent && <View style={styles.currentBadge}><Text style={styles.currentBadgeText}>Current</Text></View>}
                   <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-                    <TouchableOpacity onPress={() => { setEditingRole(r); setModalVisible(true) }} hitSlop={8}>
+                    <TouchableOpacity onPress={() => { setEditingRole(r); setModalVisible(true) }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
                       <Text style={styles.editIcon}>{'\u270E'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => confirmAction({ message: 'Delete this role?', onConfirm: () => deleteRole.mutate(r.id) })} hitSlop={8}>
+                    <TouchableOpacity onPress={() => confirmAction({ message: 'Delete this role?', onConfirm: () => deleteRole.mutate(r.id) })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
                       <Text style={styles.deleteIcon}>{'\u2715'}</Text>
                     </TouchableOpacity>
                   </View>
@@ -303,6 +307,13 @@ export default function CareerScreen() {
               </View>
             </View>
           ))}
+          {(roles.data ?? []).length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>{'\u{1F4C5}'}</Text>
+              <Text style={styles.emptyTitle}>No roles yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first roles</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -320,10 +331,10 @@ export default function CareerScreen() {
                     <Text style={styles.skillName}>{s.name}</Text>
                     <Text style={{ fontSize: fontSize.xxs, color: SKILL_COLORS[s.level] }}>{SKILL_LABELS[s.level]}</Text>
                     <View style={{ flexDirection: 'row', gap: spacing.xs, marginTop: 2 }}>
-                      <TouchableOpacity onPress={() => { setEditingSkill(s); setModalVisible(true) }} hitSlop={8}>
+                      <TouchableOpacity onPress={() => { setEditingSkill(s); setModalVisible(true) }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
                         <Text style={styles.editIconSm}>{'\u270E'}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => confirmAction({ message: `Delete skill "${s.name}"?`, onConfirm: () => deleteSkill.mutate(s.id) })} hitSlop={8}>
+                      <TouchableOpacity onPress={() => confirmAction({ message: `Delete skill "${s.name}"?`, onConfirm: () => deleteSkill.mutate(s.id) })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
                         <Text style={styles.deleteIconSm}>{'\u2715'}</Text>
                       </TouchableOpacity>
                     </View>
@@ -332,6 +343,13 @@ export default function CareerScreen() {
               </View>
             </View>
           ))}
+          {(skills.data ?? []).length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>{'\u{1F6E0}\uFE0F'}</Text>
+              <Text style={styles.emptyTitle}>No skills yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first skills</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -344,10 +362,10 @@ export default function CareerScreen() {
                 <Text style={styles.achTitle}>{a.title}</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                   <Text style={styles.achDate}>{a.achDate?.slice(0, 7)}</Text>
-                  <TouchableOpacity onPress={() => { setEditingAch(a); setModalVisible(true) }} hitSlop={8}>
+                  <TouchableOpacity onPress={() => { setEditingAch(a); setModalVisible(true) }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
                     <Text style={styles.editIcon}>{'\u270E'}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => confirmAction({ message: 'Delete this achievement?', onConfirm: () => deleteAch.mutate(a.id) })} hitSlop={8}>
+                  <TouchableOpacity onPress={() => confirmAction({ message: 'Delete this achievement?', onConfirm: () => deleteAch.mutate(a.id) })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
                     <Text style={styles.deleteIcon}>{'\u2715'}</Text>
                   </TouchableOpacity>
                 </View>
@@ -356,6 +374,13 @@ export default function CareerScreen() {
               {a.impact ? <Text style={styles.achImpact}>{a.impact}</Text> : null}
             </View>
           ))}
+          {(achievements.data ?? []).length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>{'\u{1F3C6}'}</Text>
+              <Text style={styles.emptyTitle}>No achievements yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first achievements</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -370,15 +395,22 @@ export default function CareerScreen() {
               </View>
               <Text style={styles.salaryAmount}>{'\u00A3'}{s.salary.toLocaleString()}</Text>
               <View style={{ gap: spacing.xs, marginLeft: spacing.sm }}>
-                <TouchableOpacity onPress={() => { setEditingSalary(s); setModalVisible(true) }} hitSlop={8}>
+                <TouchableOpacity onPress={() => { setEditingSalary(s); setModalVisible(true) }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit" accessibilityHint="Double tap to edit">
                   <Text style={styles.editIcon}>{'\u270E'}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => confirmAction({ message: 'Delete this salary entry?', onConfirm: () => deleteSalaryMut.mutate(s.id) })} hitSlop={8}>
+                <TouchableOpacity onPress={() => confirmAction({ message: 'Delete this salary entry?', onConfirm: () => deleteSalaryMut.mutate(s.id) })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Delete" accessibilityHint="Double tap to delete this item">
                   <Text style={styles.deleteIcon}>{'\u2715'}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ))}
+          {(salary.data ?? []).length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyEmoji}>{'\u{1F4B5}'}</Text>
+              <Text style={styles.emptyTitle}>No salary records yet</Text>
+              <Text style={styles.emptySub}>Tap + to add your first salary</Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -456,4 +488,9 @@ const styles = StyleSheet.create({
   levelRow: { flexDirection: 'row', gap: spacing.sm },
   levelBtn: { width: 36, height: 36, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgCard },
   levelActive: { backgroundColor: colors.primaryDim, borderColor: colors.primary },
+  // Empty states
+  empty: { alignItems: 'center', paddingVertical: spacing.xxxl, gap: spacing.sm },
+  emptyEmoji: { fontSize: 48 },
+  emptyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text2 },
+  emptySub: { fontSize: fontSize.sm, color: colors.text3 },
 })

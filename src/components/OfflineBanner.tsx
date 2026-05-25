@@ -10,7 +10,7 @@ export default function OfflineBanner() {
   if (!isOffline) return null
 
   return (
-    <View style={[styles.banner, { top: insets.top }]}>
+    <View style={[styles.banner, { top: insets.top }]} accessibilityRole="alert" accessibilityLiveRegion="polite">
       <Text style={styles.text}>You're offline — changes won't be saved</Text>
     </View>
   )
