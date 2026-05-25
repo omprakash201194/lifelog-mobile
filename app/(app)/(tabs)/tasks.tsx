@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import {
-  ScrollView, View, Text, StyleSheet, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Modal, TextInput,
+  View, Text, StyleSheet, TouchableOpacity,
+  ActivityIndicator, TextInput,
 } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/services/api'
+import { useToast } from '@/contexts/ToastContext'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { useLayout } from '@/hooks/useLayout'
+import { confirmAction } from '@/components/ConfirmDialog'
+import ScreenWrapper from '@/components/ScreenWrapper'
+import ModalForm from '@/components/ModalForm'
 import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
 import type { Task } from '@/types/models'
 
 // ── Quadrant config ────────────────────────────────────────────
-// Backend enum values: DO, SCHEDULE, DELEGATE, ELIMINATE
 const QUADRANTS: {
   key:    Task['quadrant']
   label:  string
@@ -17,10 +22,10 @@ const QUADRANTS: {
   emoji:  string
   desc:   string
 }[] = [
-  { key: 'DO',        label: 'Do',        accent: colors.red,   emoji: '🔴', desc: 'Urgent & Important'     },
-  { key: 'SCHEDULE',  label: 'Schedule',  accent: colors.blue,  emoji: '🔵', desc: 'Important, not Urgent'  },
-  { key: 'DELEGATE',  label: 'Delegate',  accent: colors.amber, emoji: '🟡', desc: 'Urgent, not Important'  },
-  { key: 'ELIMINATE', label: 'Eliminate', accent: colors.text3, emoji: '⚪', desc: 'Neither Urgent nor Important' },
+  { key: 'DO',        label: 'Do',        accent: colors.red,   emoji: '\u{1F534}', desc: 'Urgent & Important'     },
+  { key: 'SCHEDULE',  label: 'Schedule',  accent: colors.blue,  emoji: '\u{1F535}', desc: 'Important, not Urgent'  },
+  { key: 'DELEGATE',  label: 'Delegate',  accent: colors.amber, emoji: '\u{1F7E1}', desc: 'Urgent, not Important'  },
+  { key: 'ELIMINATE', label: 'Eliminate', accent: colors.text3, emoji: '\u26AA', desc: 'Neither Urgent nor Important' },
 ]
 
 // ── Task item ──────────────────────────────────────────────────
@@ -37,13 +42,13 @@ function TaskItem({
     <TouchableOpacity onPress={() => setExpanded(e => !e)} activeOpacity={0.7}>
       <View style={styles.taskRow}>
         <TouchableOpacity style={[styles.checkBox, task.completed && styles.checkDone]} onPress={onToggle}>
-          {task.completed && <Text style={styles.checkMark}>✓</Text>}
+          {task.completed && <Text style={styles.checkMark}>{'\u2713'}</Text>}
         </TouchableOpacity>
         <Text style={[styles.taskTitle, task.completed && styles.taskDone]} numberOfLines={expanded ? undefined : 2}>
           {task.title}
         </Text>
         <TouchableOpacity onPress={onDelete} style={styles.deleteIcon}>
-          <Text style={styles.deleteIconText}>✕</Text>
+          <Text style={styles.deleteIconText}>{'\u2715'}</Text>
         </TouchableOpacity>
       </View>
       {expanded && task.description ? (
@@ -55,12 +60,13 @@ function TaskItem({
 
 // ── Add task modal ─────────────────────────────────────────────
 function AddTaskModal({
-  visible, defaultQuadrant, onSave, onClose,
+  visible, defaultQuadrant, onSave, onClose, saving,
 }: {
   visible:          boolean
   defaultQuadrant:  Task['quadrant']
   onSave:           (t: Partial<Task>) => void
   onClose:          () => void
+  saving?:          boolean
 }) {
   const [title,    setTitle]    = useState('')
   const [desc,     setDesc]     = useState('')
@@ -73,68 +79,59 @@ function AddTaskModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Add task</Text>
+    <ModalForm
+      visible={visible}
+      title="Add task"
+      onClose={onClose}
+      onSave={handleSave}
+      saving={saving}
+      disabled={!title.trim()}
+      saveLabel="Add task"
+    >
+      <TextInput
+        style={styles.input}
+        value={title}
+        onChangeText={setTitle}
+        placeholder="Task title"
+        placeholderTextColor={colors.text3}
+        autoFocus
+      />
 
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Task title"
-            placeholderTextColor={colors.text3}
-            autoFocus
-          />
+      <TextInput
+        style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+        value={desc}
+        onChangeText={setDesc}
+        placeholder="Notes (optional)"
+        placeholderTextColor={colors.text3}
+        multiline
+      />
 
-          <TextInput
-            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-            value={desc}
-            onChangeText={setDesc}
-            placeholder="Notes (optional)"
-            placeholderTextColor={colors.text3}
-            multiline
-          />
-
-          <Text style={styles.fieldLabel}>Quadrant</Text>
-          <View style={styles.quadrantPicker}>
-            <View style={styles.qRow}>
-              {[QUADRANTS[0], QUADRANTS[1]].map(q => (
-                <TouchableOpacity
-                  key={q.key}
-                  style={[styles.qBtn, quadrant === q.key && { borderColor: q.accent, backgroundColor: q.accent + '22' }]}
-                  onPress={() => setQuadrant(q.key)}>
-                  <Text style={styles.qBtnEmoji}>{q.emoji}</Text>
-                  <Text style={styles.qBtnLabel}>{q.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <View style={styles.qRow}>
-              {[QUADRANTS[2], QUADRANTS[3]].map(q => (
-                <TouchableOpacity
-                  key={q.key}
-                  style={[styles.qBtn, quadrant === q.key && { borderColor: q.accent, backgroundColor: q.accent + '22' }]}
-                  onPress={() => setQuadrant(q.key)}>
-                  <Text style={styles.qBtnEmoji}>{q.emoji}</Text>
-                  <Text style={styles.qBtnLabel}>{q.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.saveBtn, !title.trim() && { opacity: 0.4 }]}
-            disabled={!title.trim()}
-            onPress={handleSave}>
-            <Text style={styles.saveBtnText}>Add task</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
+      <Text style={styles.fieldLabel}>Quadrant</Text>
+      <View style={styles.quadrantPicker}>
+        <View style={styles.qRow}>
+          {[QUADRANTS[0], QUADRANTS[1]].map(q => (
+            <TouchableOpacity
+              key={q.key}
+              style={[styles.qBtn, quadrant === q.key && { borderColor: q.accent, backgroundColor: q.accent + '22' }]}
+              onPress={() => setQuadrant(q.key)}>
+              <Text style={styles.qBtnEmoji}>{q.emoji}</Text>
+              <Text style={styles.qBtnLabel}>{q.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <View style={styles.qRow}>
+          {[QUADRANTS[2], QUADRANTS[3]].map(q => (
+            <TouchableOpacity
+              key={q.key}
+              style={[styles.qBtn, quadrant === q.key && { borderColor: q.accent, backgroundColor: q.accent + '22' }]}
+              onPress={() => setQuadrant(q.key)}>
+              <Text style={styles.qBtnEmoji}>{q.emoji}</Text>
+              <Text style={styles.qBtnLabel}>{q.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
-    </Modal>
+    </ModalForm>
   )
 }
 
@@ -192,6 +189,9 @@ function QuadrantCard({
 // ── Main screen ────────────────────────────────────────────────
 export default function TasksScreen() {
   const qc = useQueryClient()
+  const { showToast } = useToast()
+  const { isOffline } = useNetworkStatus()
+  const { width } = useLayout()
   const [modal,          setModal]          = useState(false)
   const [addForQuadrant, setAddForQuadrant] = useState<Task['quadrant']>('DO')
 
@@ -207,17 +207,20 @@ export default function TasksScreen() {
 
   const createTask = useMutation({
     mutationFn: (t: Partial<Task>) => apiClient.post('/tasks', t),
-    onSuccess:  () => { invalidate(); setModal(false) },
+    onSuccess:  () => { invalidate(); setModal(false); showToast('Task created', 'success') },
+    onError: () => showToast('Failed to create task', 'error'),
   })
 
   const updateTask = useMutation({
     mutationFn: ({ id, ...data }: Partial<Task> & { id: string }) => apiClient.put(`/tasks/${id}`, data),
-    onSuccess:  () => invalidate(),
+    onSuccess:  () => { invalidate(); showToast('Task updated', 'success') },
+    onError: () => showToast('Failed to update task', 'error'),
   })
 
   const deleteTask = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/tasks/${id}`),
-    onSuccess:  () => invalidate(),
+    onSuccess:  () => { invalidate(); showToast('Task deleted', 'success') },
+    onError: () => showToast('Failed to delete task', 'error'),
   })
 
   const openAdd = (q: Task['quadrant']) => {
@@ -232,24 +235,23 @@ export default function TasksScreen() {
   const totalActive    = tasks.filter(t => !t.completed).length
   const totalCompleted = tasks.filter(t => t.completed).length
 
-  return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}>
+  // Responsive grid minHeight based on screen width
+  const gridMinHeight = width * 0.35
 
+  return (
+    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch} padHorizontal={false}>
       {/* Header */}
       <View style={styles.pageHeader}>
         <View>
           <Text style={styles.pageTitle}>Tasks</Text>
-          <Text style={styles.pageSubtitle}>{totalActive} active · {totalCompleted} done</Text>
+          <Text style={styles.pageSubtitle}>{totalActive} active \u00B7 {totalCompleted} done</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => openAdd('DO')}>
+        <TouchableOpacity style={[styles.addBtn, isOffline && { opacity: 0.4 }]} onPress={() => openAdd('DO')} disabled={isOffline}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Eisenhower grid — 2 columns */}
+      {/* Eisenhower grid - 2 columns */}
       <View style={styles.eisenhowerGrid}>
         <View style={styles.gridRow}>
           {[QUADRANTS[0], QUADRANTS[1]].map(q => (
@@ -259,7 +261,7 @@ export default function TasksScreen() {
                 tasks={tasks.filter(t => t.quadrant === q.key)}
                 onAdd={() => openAdd(q.key)}
                 onToggle={(id, completed) => updateTask.mutate({ id, completed })}
-                onDelete={(id) => deleteTask.mutate(id)}
+                onDelete={(id) => confirmAction({ message: 'Delete this task?', onConfirm: () => deleteTask.mutate(id) })}
               />
             </View>
           ))}
@@ -272,7 +274,7 @@ export default function TasksScreen() {
                 tasks={tasks.filter(t => t.quadrant === q.key)}
                 onAdd={() => openAdd(q.key)}
                 onToggle={(id, completed) => updateTask.mutate({ id, completed })}
-                onDelete={(id) => deleteTask.mutate(id)}
+                onDelete={(id) => confirmAction({ message: 'Delete this task?', onConfirm: () => deleteTask.mutate(id) })}
               />
             </View>
           ))}
@@ -284,26 +286,25 @@ export default function TasksScreen() {
         defaultQuadrant={addForQuadrant}
         onSave={t => createTask.mutate(t)}
         onClose={() => setModal(false)}
+        saving={createTask.isPending}
       />
 
       <View style={{ height: spacing.xxxl }} />
-    </ScrollView>
+    </ScreenWrapper>
   )
 }
 
 // ── Styles ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: spacing.sm, paddingTop: spacing.xxl + 8 },
   center:  { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
 
-  pageHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg, paddingHorizontal: spacing.sm },
+  pageHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg, paddingHorizontal: spacing.lg },
   pageTitle:    { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.text1 },
   pageSubtitle: { fontSize: fontSize.sm, color: colors.text3, marginTop: 2 },
   addBtn:       { backgroundColor: colors.primary, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderRadius: radius.md },
   addBtnText:   { color: '#fff', fontWeight: fontWeight.semibold, fontSize: fontSize.sm },
 
-  eisenhowerGrid: { gap: spacing.sm },
+  eisenhowerGrid: { gap: spacing.sm, paddingHorizontal: spacing.sm },
   gridRow:        { flexDirection: 'row', gap: spacing.sm },
 
   quadCard:   { flex: 1, backgroundColor: colors.bgCard, borderRadius: radius.lg, borderWidth: 1.5, padding: spacing.sm, minHeight: 120 },
@@ -330,9 +331,6 @@ const styles = StyleSheet.create({
   emptyQuad:{ fontSize: fontSize.xs, color: colors.text3, textAlign: 'center', paddingVertical: spacing.sm },
 
   // Modal
-  overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet:      { backgroundColor: colors.bgCard, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xxxl },
-  sheetTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text1, marginBottom: spacing.xl, textAlign: 'center' },
   fieldLabel: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.text3, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: spacing.sm },
   input:      { backgroundColor: colors.bg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, color: colors.text1, fontSize: fontSize.base, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.lg },
   quadrantPicker: { gap: spacing.sm, marginBottom: spacing.xl },
@@ -340,8 +338,4 @@ const styles = StyleSheet.create({
   qBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   qBtnEmoji:  { fontSize: 16 },
   qBtnLabel:  { fontSize: fontSize.sm, color: colors.text2 },
-  saveBtn:    { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.sm },
-  saveBtnText:{ color: '#fff', fontWeight: fontWeight.semibold, fontSize: fontSize.base },
-  cancelBtn:  { alignItems: 'center', paddingVertical: spacing.sm },
-  cancelText: { color: colors.text3, fontSize: fontSize.base },
 })

@@ -1,12 +1,15 @@
-import { useState } from 'react'
-import {
-  ScrollView, View, Text, StyleSheet, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Modal, TextInput,
-} from 'react-native'
+import { useState, useEffect } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import apiClient from '@/services/api'
 import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
+import ScreenWrapper from '@/components/ScreenWrapper'
+import ModalForm from '@/components/ModalForm'
+import FormField from '@/components/FormField'
+import { useToast } from '@/contexts/ToastContext'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { confirmAction } from '@/components/ConfirmDialog'
 import type { SocialConnection } from '@/types/models'
 
 function daysSince(d: string | null): number | null {
@@ -30,8 +33,8 @@ function Avatar({ name, colorVar }: { name: string; colorVar: string }) {
   )
 }
 
-function ContactCard({ person, onLogContact, onDelete }: {
-  person: SocialConnection; onLogContact: () => void; onDelete: () => void
+function ContactCard({ person, onLogContact, onDelete, onEdit }: {
+  person: SocialConnection; onLogContact: () => void; onDelete: () => void; onEdit: () => void
 }) {
   const days = daysSince(person.lastContact)
   const urgency = urgencyColor(days)
@@ -42,81 +45,93 @@ function ContactCard({ person, onLogContact, onDelete }: {
         <View style={{ flex: 1 }}>
           <Text style={styles.personName}>{person.name}</Text>
           <Text style={styles.personRel}>{person.relationship}</Text>
-          {person.birthday ? <Text style={styles.birthday}>🎂 {person.birthday}</Text> : null}
+          {person.birthday ? <Text style={styles.birthday}>{'\u{1F382}'} {person.birthday}</Text> : null}
         </View>
         <View style={styles.cardRight}>
           <Text style={[styles.daysAgo, { color: urgency }]}>
             {days === null ? 'Never' : days === 0 ? 'Today' : `${days}d ago`}
           </Text>
           <TouchableOpacity style={styles.contactBtn} onPress={onLogContact}>
-            <Text style={styles.contactBtnText}>📞</Text>
+            <Text style={styles.contactBtnText}>{'\u{1F4DE}'}</Text>
           </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-          <Text style={styles.deleteIcon}>✕</Text>
-        </TouchableOpacity>
+        <View style={{ gap: spacing.xs }}>
+          <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+            <Text style={styles.editIcon}>{'\u270E'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+            <Text style={styles.deleteIcon}>{'\u2715'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       {person.notes ? <Text style={styles.personNotes}>{person.notes}</Text> : null}
     </View>
   )
 }
 
-interface NewPerson { name: string; relationship: string; notes: string; birthday: string }
-const blankPerson = (): NewPerson => ({ name: '', relationship: 'friend', notes: '', birthday: '' })
-
-function AddModal({ visible, onClose, onSave }: { visible: boolean; onClose: () => void; onSave: (p: NewPerson) => void }) {
-  const [form, setForm] = useState<NewPerson>(blankPerson)
-  const set = (k: keyof NewPerson, v: string) => setForm(f => ({ ...f, [k]: v }))
-  const RELS = ['friend', 'family', 'colleague', 'mentor', 'acquaintance']
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <ScrollView style={styles.modal} contentContainerStyle={styles.modalContent}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={onClose}><Text style={styles.modalCancel}>Cancel</Text></TouchableOpacity>
-          <Text style={styles.modalTitle}>Add Person</Text>
-          <TouchableOpacity onPress={() => { onSave(form); setForm(blankPerson()) }}><Text style={styles.modalSave}>Save</Text></TouchableOpacity>
-        </View>
-        <Text style={styles.fieldLabel}>Name *</Text>
-        <TextInput style={styles.input} value={form.name} onChangeText={t => set('name', t)} placeholderTextColor={colors.text3} placeholder="Full name" />
-        <Text style={styles.fieldLabel}>Relationship</Text>
-        <View style={styles.chipRow}>
-          {RELS.map(r => (
-            <TouchableOpacity key={r} style={[styles.chip, form.relationship === r && styles.chipActive]} onPress={() => set('relationship', r)}>
-              <Text style={[styles.chipText, form.relationship === r && styles.chipActiveText]}>{r}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <Text style={styles.fieldLabel}>Birthday (YYYY-MM-DD)</Text>
-        <TextInput style={styles.input} value={form.birthday} onChangeText={t => set('birthday', t)} placeholderTextColor={colors.text3} placeholder="1990-01-01" />
-        <Text style={styles.fieldLabel}>Notes</Text>
-        <TextInput style={[styles.input, styles.textAreaSm]} value={form.notes} onChangeText={t => set('notes', t)} placeholderTextColor={colors.text3} multiline numberOfLines={3} />
-        <View style={{ height: spacing.xxxl }} />
-      </ScrollView>
-    </Modal>
-  )
+interface PersonForm { name: string; relationship: string; notes: string; birthday: string }
+const blankForm = (): PersonForm => ({ name: '', relationship: 'friend', notes: '', birthday: '' })
+function toForm(p: SocialConnection): PersonForm {
+  return { name: p.name, relationship: p.relationship, notes: p.notes ?? '', birthday: p.birthday ?? '' }
 }
+
+const RELS = ['friend', 'family', 'colleague', 'mentor', 'acquaintance']
 
 export default function SocialScreen() {
   const router = useRouter()
-  const qc     = useQueryClient()
-  const [modal, setModal] = useState(false)
+  const qc = useQueryClient()
+  const { showToast } = useToast()
+  const { isOffline } = useNetworkStatus()
+  const [modalVisible, setModalVisible] = useState(false)
+  const [editing, setEditing] = useState<SocialConnection | null>(null)
+  const [form, setForm] = useState<PersonForm>(blankForm)
+
+  useEffect(() => {
+    if (modalVisible) {
+      setForm(editing ? toForm(editing) : blankForm())
+    }
+  }, [editing, modalVisible])
+
+  const openCreate = () => { setEditing(null); setModalVisible(true) }
+  const openEdit = (item: SocialConnection) => { setEditing(item); setModalVisible(true) }
 
   const { data = [], isLoading, isError, refetch, isFetching } = useQuery<SocialConnection[]>({
     queryKey: ['social'],
-    queryFn:  () => apiClient.get('/social').then(r => r.data),
+    queryFn: () => apiClient.get('/social').then(r => r.data),
   })
-  const createPerson = useMutation({
-    mutationFn: (p: NewPerson) => apiClient.post('/social', { ...p, birthday: p.birthday || null }),
-    onSuccess:  () => { qc.invalidateQueries({ queryKey: ['social'] }); setModal(false) },
+
+  const saveMutation = useMutation({
+    mutationFn: (d: PersonForm) => {
+      const payload = { ...d, birthday: d.birthday || null }
+      return editing
+        ? apiClient.put(`/social/${editing.id}`, payload)
+        : apiClient.post('/social', payload)
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['social'] })
+      setModalVisible(false)
+      showToast(editing ? 'Updated!' : 'Created!', 'success')
+    },
+    onError: () => showToast('Failed to save connection', 'error'),
   })
+
   const logContact = useMutation({
     mutationFn: (id: string) => apiClient.post(`/social/${id}/contact`, {}),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['social'] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['social'] }); showToast('Contact logged!', 'success') },
+    onError: () => showToast('Failed to log contact', 'error'),
   })
-  const deletePerson = useMutation({
+
+  const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/social/${id}`),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['social'] }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['social'] }); showToast('Deleted!', 'success') },
+    onError: () => showToast('Failed to delete', 'error'),
   })
+
+  const handleDelete = (id: string) => {
+    confirmAction({ message: 'Delete this connection?', onConfirm: () => deleteMutation.mutate(id) })
+  }
+
+  const set = (k: keyof PersonForm, v: string) => setForm(f => ({ ...f, [k]: v }))
 
   const sorted = [...data].sort((a, b) => {
     const da = daysSince(a.lastContact) ?? 9999
@@ -125,42 +140,58 @@ export default function SocialScreen() {
   })
 
   return (
-    <View style={styles.root}>
-      <AddModal visible={modal} onClose={() => setModal(false)} onSave={p => createPerson.mutate(p)} />
-      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}>
-        <View style={styles.pageHeader}>
-          <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>‹ Back</Text></TouchableOpacity>
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.pageTitle}>Social</Text>
-              <Text style={styles.pageSubtitle}>{data.length} connection{data.length === 1 ? '' : 's'}</Text>
-            </View>
-            <TouchableOpacity style={styles.addBtn} onPress={() => setModal(true)}>
-              <Text style={styles.addBtnText}>+ Add</Text>
+    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
+      <ModalForm
+        visible={modalVisible}
+        title={editing ? 'Edit Person' : 'Add Person'}
+        onClose={() => setModalVisible(false)}
+        onSave={() => saveMutation.mutate(form)}
+        saving={saveMutation.isPending}
+        disabled={isOffline || !form.name.trim()}
+      >
+        <FormField label="Name *" value={form.name} onChangeText={t => set('name', t)} placeholder="Full name" />
+        <Text style={styles.fieldLabel}>Relationship</Text>
+        <View style={styles.chipRow}>
+          {RELS.map(r => (
+            <TouchableOpacity key={r} style={[styles.chip, form.relationship === r && styles.chipActive]} onPress={() => set('relationship', r)}>
+              <Text style={[styles.chipText, form.relationship === r && styles.chipActiveText]}>{r}</Text>
             </TouchableOpacity>
-          </View>
+          ))}
         </View>
-        {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />}
-        {isError && <Text style={styles.errorText}>Could not load connections</Text>}
-        {sorted.map(p => (
-          <ContactCard key={p.id} person={p} onLogContact={() => logContact.mutate(p.id)} onDelete={() => deletePerson.mutate(p.id)} />
-        ))}
-        {!isLoading && data.length === 0 && (
-          <View style={styles.empty}>
-            <Text style={{ fontSize: 48 }}>👥</Text>
-            <Text style={styles.emptyText}>No connections yet</Text>
-            <Text style={styles.emptySub}>Add people you want to stay in touch with</Text>
+        <FormField label="Birthday (YYYY-MM-DD)" optional value={form.birthday} onChangeText={t => set('birthday', t)} placeholder="1990-01-01" />
+        <FormField label="Notes" optional value={form.notes} onChangeText={t => set('notes', t)} multiline numberOfLines={3} />
+      </ModalForm>
+
+      <View style={styles.pageHeader}>
+        <TouchableOpacity onPress={() => router.back()}><Text style={styles.backText}>{'\u2039'} Back</Text></TouchableOpacity>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.pageTitle}>Social</Text>
+            <Text style={styles.pageSubtitle}>{data.length} connection{data.length === 1 ? '' : 's'}</Text>
           </View>
-        )}
-        <View style={{ height: spacing.xxxl }} />
-      </ScrollView>
-    </View>
+          <TouchableOpacity style={[styles.addBtn, isOffline && styles.btnDisabled]} onPress={openCreate} disabled={isOffline}>
+            <Text style={styles.addBtnText}>+ Add</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      {isLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xxl }} />}
+      {isError && <Text style={styles.errorText}>Could not load connections</Text>}
+      {sorted.map(p => (
+        <ContactCard key={p.id} person={p} onLogContact={() => logContact.mutate(p.id)} onDelete={() => handleDelete(p.id)} onEdit={() => openEdit(p)} />
+      ))}
+      {!isLoading && data.length === 0 && (
+        <View style={styles.empty}>
+          <Text style={{ fontSize: 48 }}>{'\u{1F465}'}</Text>
+          <Text style={styles.emptyText}>No connections yet</Text>
+          <Text style={styles.emptySub}>Add people you want to stay in touch with</Text>
+        </View>
+      )}
+      <View style={{ height: spacing.xxxl }} />
+    </ScreenWrapper>
   )
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + 8 },
   pageHeader: { marginBottom: spacing.xl },
   backText: { fontSize: fontSize.base, color: colors.primary, marginBottom: spacing.sm },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
@@ -168,6 +199,7 @@ const styles = StyleSheet.create({
   pageSubtitle: { fontSize: fontSize.sm, color: colors.text3, marginTop: 2 },
   addBtn: { backgroundColor: colors.primaryDim, borderRadius: radius.md, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.primary },
   addBtnText: { color: colors.primary, fontWeight: fontWeight.semibold, fontSize: fontSize.sm },
+  btnDisabled: { opacity: 0.4 },
   card: { backgroundColor: colors.bgCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.md, gap: spacing.sm },
   cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   avatar: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgDeep },
@@ -179,21 +211,14 @@ const styles = StyleSheet.create({
   daysAgo: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
   contactBtn: { backgroundColor: colors.bgDeep, borderRadius: radius.sm, padding: spacing.xs },
   contactBtnText: { fontSize: 16 },
+  editIcon: { fontSize: fontSize.sm, color: colors.primary },
   deleteIcon: { fontSize: fontSize.sm, color: colors.text3 },
   personNotes: { fontSize: fontSize.sm, color: colors.text3, fontStyle: 'italic', borderTopWidth: 1, borderTopColor: colors.border, paddingTop: spacing.sm },
   errorText: { color: colors.rose, textAlign: 'center', marginTop: spacing.xxl },
   empty: { alignItems: 'center', paddingVertical: spacing.xxxl, gap: spacing.sm },
   emptyText: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text2 },
   emptySub: { fontSize: fontSize.sm, color: colors.text3 },
-  modal: { flex: 1, backgroundColor: colors.bg },
-  modalContent: { padding: spacing.lg },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
-  modalTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.text1 },
-  modalCancel: { fontSize: fontSize.base, color: colors.text3 },
-  modalSave: { fontSize: fontSize.base, color: colors.primary, fontWeight: fontWeight.semibold },
   fieldLabel: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.text3, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: spacing.sm, marginTop: spacing.md },
-  input: { backgroundColor: colors.bgCard, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.md, color: colors.text1, fontSize: fontSize.base },
-  textAreaSm: { height: 80, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border },
   chipActive: { backgroundColor: colors.primaryDim, borderColor: colors.primary },

@@ -1,8 +1,10 @@
 import {
-  ScrollView, View, Text, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { usePreferences } from '@/contexts/PreferencesContext'
+import { useLayout } from '@/hooks/useLayout'
+import ScreenWrapper from '@/components/ScreenWrapper'
 import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
 
 // ── Module definitions ─────────────────────────────────────────
@@ -14,23 +16,23 @@ const MODULES: {
   feature: string
   desc:    string
 }[] = [
-  { key: 'journal',      label: 'Journal',      emoji: '📓', route: '/(app)/journal',      feature: 'journal',      desc: 'Morning & evening entries' },
-  { key: 'goals',        label: 'Goals',        emoji: '🎯', route: '/(app)/goals',        feature: 'goals',        desc: 'Track milestones'          },
-  { key: 'health',       label: 'Health',       emoji: '💪', route: '/(app)/health',       feature: 'health',       desc: 'Weight, sleep, steps'      },
-  { key: 'reading',      label: 'Reading',      emoji: '📚', route: '/(app)/reading',      feature: 'reading',      desc: 'Books & reading log'       },
-  { key: 'notes',        label: 'Notes',        emoji: '🗒️', route: '/(app)/notes',        feature: 'notes',        desc: 'Markdown notes tree'       },
-  { key: 'reflections',  label: 'Reflections',  emoji: '🪞', route: '/(app)/reflections',  feature: 'reflections',  desc: 'Weekly & monthly reviews'  },
-  { key: 'social',       label: 'Social',       emoji: '👥', route: '/(app)/social',       feature: 'social',       desc: 'Stay in touch'             },
-  { key: 'trips',        label: 'Trips',        emoji: '✈️', route: '/(app)/trips',        feature: 'trips',        desc: 'Travel log & destinations' },
-  { key: 'career',       label: 'Career',       emoji: '💼', route: '/(app)/career',       feature: 'career',       desc: 'Roles, skills & salary'    },
-  { key: 'finance',      label: 'Finance',      emoji: '💰', route: '/(app)/finance',      feature: 'finance',      desc: 'Assets, goals & net worth' },
-  { key: 'experiences',  label: 'Experiences',  emoji: '🌟', route: '/(app)/experiences',  feature: 'experiences',  desc: 'Life bucket list'          },
+  { key: 'journal',      label: 'Journal',      emoji: '\u{1F4D3}', route: '/(app)/journal',      feature: 'journal',      desc: 'Morning & evening entries' },
+  { key: 'goals',        label: 'Goals',        emoji: '\u{1F3AF}', route: '/(app)/goals',        feature: 'goals',        desc: 'Track milestones'          },
+  { key: 'health',       label: 'Health',       emoji: '\u{1F4AA}', route: '/(app)/health',       feature: 'health',       desc: 'Weight, sleep, steps'      },
+  { key: 'reading',      label: 'Reading',      emoji: '\u{1F4DA}', route: '/(app)/reading',      feature: 'reading',      desc: 'Books & reading log'       },
+  { key: 'notes',        label: 'Notes',        emoji: '\u{1F5D2}\uFE0F', route: '/(app)/notes',        feature: 'notes',        desc: 'Markdown notes tree'       },
+  { key: 'reflections',  label: 'Reflections',  emoji: '\u{1FA9E}', route: '/(app)/reflections',  feature: 'reflections',  desc: 'Weekly & monthly reviews'  },
+  { key: 'social',       label: 'Social',       emoji: '\u{1F465}', route: '/(app)/social',       feature: 'social',       desc: 'Stay in touch'             },
+  { key: 'trips',        label: 'Trips',        emoji: '\u2708\uFE0F', route: '/(app)/trips',        feature: 'trips',        desc: 'Travel log & destinations' },
+  { key: 'career',       label: 'Career',       emoji: '\u{1F4BC}', route: '/(app)/career',       feature: 'career',       desc: 'Roles, skills & salary'    },
+  { key: 'finance',      label: 'Finance',      emoji: '\u{1F4B0}', route: '/(app)/finance',      feature: 'finance',      desc: 'Assets, goals & net worth' },
+  { key: 'experiences',  label: 'Experiences',  emoji: '\u{1F31F}', route: '/(app)/experiences',  feature: 'experiences',  desc: 'Life bucket list'          },
 ]
 
 // ── Module tile ────────────────────────────────────────────────
-function ModuleTile({ mod, onPress }: { mod: typeof MODULES[number]; onPress: () => void }) {
+function ModuleTile({ mod, onPress, tileWidth }: { mod: typeof MODULES[number]; onPress: () => void; tileWidth: number }) {
   return (
-    <TouchableOpacity style={styles.tile} onPress={onPress} activeOpacity={0.75}>
+    <TouchableOpacity style={[styles.tile, { width: tileWidth }]} onPress={onPress} activeOpacity={0.75}>
       <Text style={styles.tileEmoji}>{mod.emoji}</Text>
       <Text style={styles.tileLabel}>{mod.label}</Text>
       <Text style={styles.tileDesc} numberOfLines={2}>{mod.desc}</Text>
@@ -43,13 +45,13 @@ function SettingsRow({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.settingsRow} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.settingsIcon}>
-        <Text style={{ fontSize: 20 }}>⚙️</Text>
+        <Text style={{ fontSize: 20 }}>{'\u2699\uFE0F'}</Text>
       </View>
       <View style={styles.settingsText}>
         <Text style={styles.settingsTitle}>Settings</Text>
         <Text style={styles.settingsSub}>Currency, theme, module visibility</Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
+      <Text style={styles.chevron}>{'\u203A'}</Text>
     </TouchableOpacity>
   )
 }
@@ -58,11 +60,12 @@ function SettingsRow({ onPress }: { onPress: () => void }) {
 export default function MoreScreen() {
   const router  = useRouter()
   const { isEnabled } = usePreferences()
+  const { tileWidth } = useLayout()
 
   const visible = MODULES.filter(m => isEnabled(m.feature))
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScreenWrapper scroll>
       {/* Header */}
       <Text style={styles.pageTitle}>More</Text>
       <Text style={styles.pageSubtitle}>All modules</Text>
@@ -73,6 +76,7 @@ export default function MoreScreen() {
           <ModuleTile
             key={mod.key}
             mod={mod}
+            tileWidth={tileWidth}
             onPress={() => router.push(mod.route as any)}
           />
         ))}
@@ -84,7 +88,7 @@ export default function MoreScreen() {
           <Text style={styles.sectionLabel}>Hidden modules</Text>
           <View style={styles.grid}>
             {MODULES.filter(m => !isEnabled(m.feature)).map(mod => (
-              <View key={mod.key} style={[styles.tile, styles.tileDisabled]}>
+              <View key={mod.key} style={[styles.tile, styles.tileDisabled, { width: tileWidth }]}>
                 <Text style={[styles.tileEmoji, { opacity: 0.4 }]}>{mod.emoji}</Text>
                 <Text style={[styles.tileLabel, { opacity: 0.4 }]}>{mod.label}</Text>
                 <Text style={styles.tileHidden}>Hidden</Text>
@@ -102,23 +106,18 @@ export default function MoreScreen() {
 
       {/* App info */}
       <View style={styles.appInfo}>
-        <Text style={styles.appInfoEmoji}>📊</Text>
+        <Text style={styles.appInfoEmoji}>{'\u{1F4CA}'}</Text>
         <Text style={styles.appInfoName}>LifeLog</Text>
-        <Text style={styles.appInfoSub}>Self-hosted · Private by design</Text>
+        <Text style={styles.appInfoSub}>Self-hosted \u00B7 Private by design</Text>
       </View>
 
       <View style={{ height: spacing.xxxl }} />
-    </ScrollView>
+    </ScreenWrapper>
   )
 }
 
 // ── Styles ─────────────────────────────────────────────────────
-const TILE_W = '30%'
-
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + 8 },
-
   pageTitle:    { fontSize: fontSize.xxl, fontWeight: fontWeight.bold, color: colors.text1 },
   pageSubtitle: { fontSize: fontSize.sm, color: colors.text3, marginBottom: spacing.xl, marginTop: 2 },
 
@@ -129,7 +128,6 @@ const styles = StyleSheet.create({
   },
 
   tile: {
-    width:           TILE_W,
     minHeight:       100,
     backgroundColor: colors.bgCard,
     borderRadius:    radius.lg,

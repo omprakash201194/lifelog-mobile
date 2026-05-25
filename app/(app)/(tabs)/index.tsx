@@ -1,10 +1,14 @@
-import { ScrollView, View, Text, StyleSheet, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import apiClient from '@/services/api'
 import { usePreferences } from '@/contexts/PreferencesContext'
+import { useToast } from '@/contexts/ToastContext'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { useLayout } from '@/hooks/useLayout'
 import { formatCurrency } from '@/lib/currency'
 import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
+import ScreenWrapper from '@/components/ScreenWrapper'
 import type { DashboardData } from '@/types/models'
 
 // ── Small UI atoms ─────────────────────────────────────────────
@@ -32,7 +36,7 @@ function SectionHeader({ title, onPress, action }: { title: string; onPress?: ()
 }
 
 // ── Mood helper ────────────────────────────────────────────────
-const MOOD_LABEL = ['', '😞', '😕', '😐', '😊', '😄']
+const MOOD_LABEL = ['', '\u{1F61E}', '\u{1F615}', '\u{1F610}', '\u{1F60A}', '\u{1F604}']
 function moodLabel(m: number | null) {
   if (m === null || m === 0) return null
   return MOOD_LABEL[m] ?? null
@@ -43,6 +47,9 @@ export default function DashboardScreen() {
   const router = useRouter()
   const qc = useQueryClient()
   const { currency, isEnabled } = usePreferences()
+  const { showToast } = useToast()
+  const { isOffline } = useNetworkStatus()
+  const { tileWidth } = useLayout()
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
@@ -52,12 +59,16 @@ export default function DashboardScreen() {
   // Complete focus task
   const completeFocus = useMutation({
     mutationFn: (id: string) => apiClient.put(`/tasks/${id}`, { completed: true }),
-    onSuccess:  () => qc.invalidateQueries({ queryKey: ['dashboard'] }),
+    onSuccess:  () => {
+      qc.invalidateQueries({ queryKey: ['dashboard'] })
+      showToast('Task completed!', 'success')
+    },
+    onError: () => showToast('Failed to complete task', 'error'),
   })
 
   const netWorthFmt = data
     ? formatCurrency(data.netWorth, currency).replace(/\.\d+$/, '')
-    : '—'
+    : '\u2014'
 
   const habitPct = data && data.todayHabits.total > 0
     ? Math.round((data.todayHabits.completed / data.todayHabits.total) * 100)
@@ -83,12 +94,7 @@ export default function DashboardScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={styles.content}
-      refreshControl={
-        <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />
-      }>
+    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
       {/* Header */}
       <View style={styles.header}>
         <View>
@@ -96,7 +102,7 @@ export default function DashboardScreen() {
           <Text style={styles.dateText}>{todayLabel()}</Text>
         </View>
         <View style={styles.moodBadge}>
-          <Text style={styles.moodEmoji}>{moodLabel(data.reflectionMood) ?? '🌟'}</Text>
+          <Text style={styles.moodEmoji}>{moodLabel(data.reflectionMood) ?? '\u{1F31F}'}</Text>
         </View>
       </View>
 
@@ -116,7 +122,7 @@ export default function DashboardScreen() {
         <StatCard
           label="Focus this week"
           value={`${data.weekFocusMinutes}m`}
-          sub={data.weekFocusMinutes >= 300 ? '🔥 On fire' : undefined}
+          sub={data.weekFocusMinutes >= 300 ? '\u{1F525} On fire' : undefined}
         />
         <StatCard
           label="Active goals"
@@ -129,11 +135,11 @@ export default function DashboardScreen() {
         <View style={styles.cardRow}>
           <Text style={styles.cardTitle}>Today's habits</Text>
           <TouchableOpacity onPress={() => router.push('/(app)/(tabs)/habits')}>
-            <Text style={styles.linkText}>View all →</Text>
+            <Text style={styles.linkText}>View all \u2192</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.progressBg}>
-          <View style={[styles.progressFill, { width: `${habitPct}%` as any, backgroundColor: habitPct === 100 ? colors.green : colors.primary }]} />
+          <View style={[styles.progressFill, { width: `${habitPct}%`, backgroundColor: habitPct === 100 ? colors.green : colors.primary }]} />
         </View>
         <Text style={styles.progressLabel}>
           {data.todayHabits.completed} of {data.todayHabits.total} completed
@@ -147,8 +153,9 @@ export default function DashboardScreen() {
           <View style={styles.focusRow}>
             <TouchableOpacity
               style={[styles.focusCheck, data.focusTask.completed && styles.focusCheckDone]}
+              disabled={isOffline || data.focusTask.completed}
               onPress={() => !data.focusTask!.completed && completeFocus.mutate(data.focusTask!.id)}>
-              {data.focusTask.completed && <Text style={styles.checkMark}>✓</Text>}
+              {data.focusTask.completed && <Text style={styles.checkMark}>{'\u2713'}</Text>}
             </TouchableOpacity>
             <Text style={[styles.focusTitle, data.focusTask.completed && styles.focusDone]}>
               {data.focusTask.title}
@@ -160,7 +167,7 @@ export default function DashboardScreen() {
       {/* Top streaks */}
       {data.topStreaks.length > 0 && (
         <View style={styles.card}>
-          <SectionHeader title="Top streaks 🔥" />
+          <SectionHeader title="Top streaks \u{1F525}" />
           {data.topStreaks.slice(0, 3).map(s => (
             <View key={s.habitId} style={styles.streakRow}>
               <Text style={styles.streakName}>{s.name}</Text>
@@ -176,7 +183,7 @@ export default function DashboardScreen() {
         {QUICK_LINKS.filter(q => isEnabled(q.feature)).map(q => (
           <TouchableOpacity
             key={q.label}
-            style={styles.quickTile}
+            style={[styles.quickTile, { width: tileWidth }]}
             onPress={() => router.push(q.route as any)}>
             <Text style={styles.quickEmoji}>{q.emoji}</Text>
             <Text style={styles.quickLabel}>{q.label}</Text>
@@ -188,13 +195,13 @@ export default function DashboardScreen() {
       {/* Journal status */}
       {(data.journalToday.morning || data.journalToday.evening) && (
         <View style={[styles.card, styles.journalRow]}>
-          <Text style={styles.journalEmoji}>📓</Text>
+          <Text style={styles.journalEmoji}>{'\u{1F4D3}'}</Text>
           <View>
             <Text style={styles.journalTitle}>Journal</Text>
             <Text style={styles.journalSub}>
               {[
-                data.journalToday.morning ? 'Morning ✅' : 'Morning ⬜',
-                data.journalToday.evening ? 'Evening ✅' : 'Evening ⬜',
+                data.journalToday.morning ? 'Morning \u2705' : 'Morning \u2B1C',
+                data.journalToday.evening ? 'Evening \u2705' : 'Evening \u2B1C',
               ].join('  ')}
             </Text>
           </View>
@@ -202,7 +209,7 @@ export default function DashboardScreen() {
       )}
 
       <View style={styles.bottomPad} />
-    </ScrollView>
+    </ScreenWrapper>
   )
 }
 
@@ -219,23 +226,21 @@ function todayLabel() {
 }
 
 const QUICK_LINKS: { label: string; emoji: string; route: string; feature: string; badge?: (d: DashboardData) => string | null }[] = [
-  { label: 'Journal',     emoji: '📓', route: '/(app)/journal',      feature: 'journal',      badge: null as any },
-  { label: 'Goals',       emoji: '🎯', route: '/(app)/goals',        feature: 'goals',        badge: d => d.activeGoals > 0 ? String(d.activeGoals) : null },
-  { label: 'Health',      emoji: '💪', route: '/(app)/health',       feature: 'health',       badge: null as any },
-  { label: 'Reading',     emoji: '📚', route: '/(app)/reading',      feature: 'reading',      badge: d => d.booksReading > 0 ? String(d.booksReading) : null },
-  { label: 'Notes',       emoji: '🗒️', route: '/(app)/notes',        feature: 'notes',        badge: null as any },
-  { label: 'Reflections', emoji: '🪞', route: '/(app)/reflections',  feature: 'reflections',  badge: null as any },
-  { label: 'Social',      emoji: '👥', route: '/(app)/social',       feature: 'social',       badge: d => d.socialOverdue > 0 ? String(d.socialOverdue) : null },
-  { label: 'Trips',       emoji: '✈️', route: '/(app)/trips',        feature: 'trips',        badge: null as any },
-  { label: 'Career',      emoji: '💼', route: '/(app)/career',       feature: 'career',       badge: null as any },
-  { label: 'Finance',     emoji: '💰', route: '/(app)/finance',      feature: 'finance',      badge: null as any },
-  { label: 'Experiences', emoji: '🌟', route: '/(app)/experiences',  feature: 'experiences',  badge: null as any },
+  { label: 'Journal',     emoji: '\u{1F4D3}', route: '/(app)/journal',      feature: 'journal' },
+  { label: 'Goals',       emoji: '\u{1F3AF}', route: '/(app)/goals',        feature: 'goals',        badge: d => d.activeGoals > 0 ? String(d.activeGoals) : null },
+  { label: 'Health',      emoji: '\u{1F4AA}', route: '/(app)/health',       feature: 'health' },
+  { label: 'Reading',     emoji: '\u{1F4DA}', route: '/(app)/reading',      feature: 'reading',      badge: d => d.booksReading > 0 ? String(d.booksReading) : null },
+  { label: 'Notes',       emoji: '\u{1F5D2}\uFE0F', route: '/(app)/notes',        feature: 'notes' },
+  { label: 'Reflections', emoji: '\u{1FA9E}', route: '/(app)/reflections',  feature: 'reflections' },
+  { label: 'Social',      emoji: '\u{1F465}', route: '/(app)/social',       feature: 'social',       badge: d => d.socialOverdue > 0 ? String(d.socialOverdue) : null },
+  { label: 'Trips',       emoji: '\u2708\uFE0F', route: '/(app)/trips',        feature: 'trips' },
+  { label: 'Career',      emoji: '\u{1F4BC}', route: '/(app)/career',       feature: 'career' },
+  { label: 'Finance',     emoji: '\u{1F4B0}', route: '/(app)/finance',      feature: 'finance' },
+  { label: 'Experiences', emoji: '\u{1F31F}', route: '/(app)/experiences',  feature: 'experiences' },
 ]
 
 // ── Styles ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + 8 },
   center:  { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
 
   header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.xl },
@@ -275,7 +280,7 @@ const styles = StyleSheet.create({
   streakCount:{ fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.amber },
 
   quickGrid:  { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
-  quickTile:  { width: '30%', aspectRatio: 1, backgroundColor: colors.bgCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  quickTile:  { aspectRatio: 1, backgroundColor: colors.bgCard, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', gap: 4 },
   quickEmoji: { fontSize: 22 },
   quickLabel: { fontSize: 10, color: colors.text2, textAlign: 'center' },
 

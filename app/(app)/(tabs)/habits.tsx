@@ -1,17 +1,21 @@
 import { useState, useMemo } from 'react'
 import {
-  ScrollView, View, Text, StyleSheet, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Modal, TextInput, Pressable,
+  View, Text, StyleSheet, TouchableOpacity,
+  ActivityIndicator, TextInput, ScrollView,
 } from 'react-native'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import apiClient from '@/services/api'
+import { useToast } from '@/contexts/ToastContext'
+import { useNetworkStatus } from '@/hooks/useNetworkStatus'
+import { confirmAction } from '@/components/ConfirmDialog'
+import ScreenWrapper from '@/components/ScreenWrapper'
+import ModalForm from '@/components/ModalForm'
 import { colors, spacing, fontSize, fontWeight, radius } from '@/theme'
 import type { Habit, HabitLog } from '@/types/models'
 
 // ── Contribution grid ──────────────────────────────────────────
 const CELL = 11
 const GAP  = 2
-const STEP = CELL + GAP
 const WEEKS = 18
 
 interface ContribDay { date: string; count: number }
@@ -82,12 +86,12 @@ function HabitRow({
   return (
     <View style={styles.habitRow}>
       <TouchableOpacity style={[styles.checkBox, done && styles.checkDone]} onPress={onToggle}>
-        {done && <Text style={styles.checkMark}>✓</Text>}
+        {done && <Text style={styles.checkMark}>{'\u2713'}</Text>}
       </TouchableOpacity>
-      <Text style={styles.habitIcon}>{habit.icon || '✦'}</Text>
+      <Text style={styles.habitIcon}>{habit.icon || '\u2726'}</Text>
       <Text style={[styles.habitName, done && styles.habitDone]}>{habit.name}</Text>
       <TouchableOpacity onPress={onEdit} style={styles.editBtn}>
-        <Text style={styles.editDot}>•••</Text>
+        <Text style={styles.editDot}>{'\u2022\u2022\u2022'}</Text>
       </TouchableOpacity>
     </View>
   )
@@ -95,87 +99,81 @@ function HabitRow({
 
 // ── Add / Edit modal ───────────────────────────────────────────
 const FREQ_OPTIONS = ['daily', 'weekdays', 'weekends', 'weekly']
-const DEFAULT_ICONS = ['✅', '💪', '📚', '🧘', '💧', '🏃', '🍎', '💤', '🎯', '✍️']
+const DEFAULT_ICONS = ['\u2705', '\u{1F4AA}', '\u{1F4DA}', '\u{1F9D8}', '\u{1F4A7}', '\u{1F3C3}', '\u{1F34E}', '\u{1F4A4}', '\u{1F3AF}', '\u270D\uFE0F']
 
 function HabitModal({
-  visible, initial, onSave, onDelete, onClose,
+  visible, initial, onSave, onDelete, onClose, saving,
 }: {
   visible: boolean
   initial: Partial<Habit> | null
   onSave:  (h: Partial<Habit>) => void
   onDelete?: () => void
   onClose: () => void
+  saving?: boolean
 }) {
   const [name,  setName]  = useState(initial?.name  ?? '')
-  const [icon,  setIcon]  = useState(initial?.icon  ?? '✅')
+  const [icon,  setIcon]  = useState(initial?.icon  ?? '\u2705')
   const [freq,  setFreq]  = useState(initial?.frequency ?? 'daily')
 
   const isEdit = !!initial?.id
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>{isEdit ? 'Edit habit' : 'New habit'}</Text>
+    <ModalForm
+      visible={visible}
+      title={isEdit ? 'Edit habit' : 'New habit'}
+      onClose={onClose}
+      onSave={() => onSave({ ...initial, name: name.trim(), icon, frequency: freq })}
+      saving={saving}
+      disabled={!name.trim()}
+      saveLabel="Save habit"
+    >
+      <Text style={styles.fieldLabel}>Name</Text>
+      <TextInput
+        style={styles.input}
+        value={name}
+        onChangeText={setName}
+        placeholder="Habit name"
+        placeholderTextColor={colors.text3}
+      />
 
-          <Text style={styles.fieldLabel}>Name</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Habit name"
-            placeholderTextColor={colors.text3}
-          />
-
-          <Text style={styles.fieldLabel}>Icon</Text>
-          <View style={styles.iconGrid}>
-            {DEFAULT_ICONS.map(ic => (
-              <TouchableOpacity
-                key={ic}
-                style={[styles.iconBtn, icon === ic && styles.iconBtnActive]}
-                onPress={() => setIcon(ic)}>
-                <Text style={{ fontSize: 22 }}>{ic}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={styles.fieldLabel}>Frequency</Text>
-          <View style={styles.freqRow}>
-            {FREQ_OPTIONS.map(f => (
-              <TouchableOpacity
-                key={f}
-                style={[styles.freqBtn, freq === f && styles.freqActive]}
-                onPress={() => setFreq(f)}>
-                <Text style={[styles.freqText, freq === f && styles.freqActiveText]}>{f}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
+      <Text style={styles.fieldLabel}>Icon</Text>
+      <View style={styles.iconGrid}>
+        {DEFAULT_ICONS.map(ic => (
           <TouchableOpacity
-            style={[styles.saveBtn, !name.trim() && { opacity: 0.4 }]}
-            disabled={!name.trim()}
-            onPress={() => onSave({ ...initial, name: name.trim(), icon, frequency: freq })}>
-            <Text style={styles.saveBtnText}>Save habit</Text>
+            key={ic}
+            style={[styles.iconBtn, icon === ic && styles.iconBtnActive]}
+            onPress={() => setIcon(ic)}>
+            <Text style={{ fontSize: 22 }}>{ic}</Text>
           </TouchableOpacity>
-
-          {isEdit && onDelete && (
-            <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
-              <Text style={styles.deleteBtnText}>Delete habit</Text>
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity onPress={onClose} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
+        ))}
       </View>
-    </Modal>
+
+      <Text style={styles.fieldLabel}>Frequency</Text>
+      <View style={styles.freqRow}>
+        {FREQ_OPTIONS.map(f => (
+          <TouchableOpacity
+            key={f}
+            style={[styles.freqBtn, freq === f && styles.freqActive]}
+            onPress={() => setFreq(f)}>
+            <Text style={[styles.freqText, freq === f && styles.freqActiveText]}>{f}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {isEdit && onDelete && (
+        <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
+          <Text style={styles.deleteBtnText}>Delete habit</Text>
+        </TouchableOpacity>
+      )}
+    </ModalForm>
   )
 }
 
 // ── Main screen ────────────────────────────────────────────────
 export default function HabitsScreen() {
   const qc = useQueryClient()
+  const { showToast } = useToast()
+  const { isOffline } = useNetworkStatus()
   const today = new Date().toISOString().split('T')[0]
 
   const [modalVisible, setModalVisible] = useState(false)
@@ -210,7 +208,8 @@ export default function HabitsScreen() {
   const toggleMutation = useMutation({
     mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
       apiClient.post('/habits/log', { habitId: id, date: today, completed }),
-    onSuccess: () => invalidate(),
+    onSuccess: () => { invalidate(); showToast('Habit updated', 'success') },
+    onError: () => showToast('Failed to update habit', 'error'),
   })
 
   const saveMutation = useMutation({
@@ -218,12 +217,14 @@ export default function HabitsScreen() {
       h.id
         ? apiClient.put(`/habits/${h.id}`, h)
         : apiClient.post('/habits', h),
-    onSuccess: () => { invalidate(); setModalVisible(false) },
+    onSuccess: () => { invalidate(); setModalVisible(false); showToast('Habit saved', 'success') },
+    onError: () => showToast('Failed to save habit', 'error'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/habits/${id}`),
-    onSuccess:  () => { invalidate(); setModalVisible(false) },
+    onSuccess:  () => { invalidate(); setModalVisible(false); showToast('Habit deleted', 'success') },
+    onError: () => showToast('Failed to delete habit', 'error'),
   })
 
   const openAdd  = ()         => { setEditing(null); setModalVisible(true) }
@@ -238,18 +239,14 @@ export default function HabitsScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={colors.primary} />}>
-
+    <ScreenWrapper scroll refreshing={isFetching} onRefresh={refetch}>
       {/* Header */}
       <View style={styles.pageHeader}>
         <View>
           <Text style={styles.pageTitle}>Habits</Text>
           <Text style={styles.pageSubtitle}>{todayFmt()}</Text>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
+        <TouchableOpacity style={[styles.addBtn, isOffline && { opacity: 0.4 }]} onPress={openAdd} disabled={isOffline}>
           <Text style={styles.addBtnText}>+ Add</Text>
         </TouchableOpacity>
       </View>
@@ -261,14 +258,14 @@ export default function HabitsScreen() {
           <Text style={[styles.progressPct, pct === 100 && { color: colors.green }]}>{pct}%</Text>
         </View>
         <View style={styles.progressBg}>
-          <View style={[styles.progressFill, { width: `${pct}%` as any, backgroundColor: pct === 100 ? colors.green : colors.primary }]} />
+          <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: pct === 100 ? colors.green : colors.primary }]} />
         </View>
       </View>
 
       {/* Habit list */}
       {activeHabits.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyEmoji}>✅</Text>
+          <Text style={styles.emptyEmoji}>{'\u2705'}</Text>
           <Text style={styles.emptyTitle}>No habits yet</Text>
           <Text style={styles.emptySub}>Tap + Add to create your first habit</Text>
         </View>
@@ -315,10 +312,11 @@ export default function HabitsScreen() {
         visible={modalVisible}
         initial={editing}
         onSave={h => saveMutation.mutate(h)}
-        onDelete={editing?.id ? () => deleteMutation.mutate(editing!.id!) : undefined}
+        onDelete={editing?.id ? () => confirmAction({ message: 'Delete this habit?', onConfirm: () => deleteMutation.mutate(editing!.id!) }) : undefined}
         onClose={() => setModalVisible(false)}
+        saving={saveMutation.isPending}
       />
-    </ScrollView>
+    </ScreenWrapper>
   )
 }
 
@@ -328,8 +326,6 @@ function todayFmt() {
 
 // ── Styles ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: colors.bg },
-  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.xxl + 8 },
   center:  { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
 
   pageHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
@@ -366,10 +362,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text1 },
   emptySub:   { fontSize: fontSize.sm, color: colors.text3, marginTop: spacing.xs },
 
-  // Modal
-  overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  sheet:      { backgroundColor: colors.bgCard, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, padding: spacing.xl, paddingBottom: spacing.xxxl },
-  sheetTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text1, marginBottom: spacing.xl, textAlign: 'center' },
+  // Modal fields
   fieldLabel: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.text3, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: spacing.xs },
   input:      { backgroundColor: colors.bg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, color: colors.text1, fontSize: fontSize.base, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.lg },
   iconGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
@@ -380,10 +373,6 @@ const styles = StyleSheet.create({
   freqActive: { backgroundColor: colors.primaryDim, borderColor: colors.primary },
   freqText:   { fontSize: 11, color: colors.text2 },
   freqActiveText: { color: colors.primary, fontWeight: fontWeight.semibold },
-  saveBtn:    { backgroundColor: colors.primary, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.sm },
-  saveBtnText:{ color: '#fff', fontWeight: fontWeight.semibold, fontSize: fontSize.base },
-  deleteBtn:  { borderWidth: 1, borderColor: colors.red, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginBottom: spacing.sm },
+  deleteBtn:  { borderWidth: 1, borderColor: colors.red, borderRadius: radius.md, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm },
   deleteBtnText: { color: colors.red, fontWeight: fontWeight.semibold, fontSize: fontSize.base },
-  cancelBtn:  { alignItems: 'center', paddingVertical: spacing.sm },
-  cancelText: { color: colors.text3, fontSize: fontSize.base },
 })
